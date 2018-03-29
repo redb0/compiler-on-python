@@ -1,6 +1,6 @@
 import re
 
-from my_token import tokens, NUMBER, IDENTIFIER, SEMI
+from my_token import tokens, NUMBER, IDENTIFIER, SEMI, INT_NUMBER, DOUBLE_NUMBER
 
 
 comment = re.compile(r"[/]{2}.*[\n]?")
@@ -40,9 +40,12 @@ def get_token(code: str):
                 else:
                     error = "Ошибка"
                     return [], error
+            if token.find('.') != -1:
+                tokens_type.append(DOUBLE_NUMBER)
+            else:
+                tokens_type.append(INT_NUMBER)
             tokens_str.append(token)
             token = ""
-            tokens_type.append(NUMBER)
             continue
         if c.isalnum() or (c == '_'):
             if (token == "") and c.isdigit():
@@ -99,7 +102,7 @@ def is_number(s):
 def main():
     with open("code.txt", 'r', encoding='utf-8') as f:
         code = f.read()
-    # print(code)
+    print(code)
     tokens_str, tokens_type = get_token(code)
     print(tokens_str)
     print(tokens_type)

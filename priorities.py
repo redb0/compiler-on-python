@@ -1,5 +1,7 @@
 # арифметические операции
 # OPERATOR_UP = 1
+from my_token import AND
+
 OPERATOR_UM = 1
 OPERATOR_POWER = 2
 OPERATOR_MUL = 3
@@ -20,6 +22,7 @@ NOT_EQUAL = 6
 ASSIGN = 7
 
 # логические операторы
-AND = 8
-OR = 8
-NOT = 8
+# AND = 8
+# OR = 8
+# NOT = 8
+

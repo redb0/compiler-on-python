@@ -20,7 +20,8 @@ class BaseAST:
             return obj
         except KeyError:
             if self.parent is not None:
-                self.parent.get_names(name)
+                obj = self.parent.get_names(name)
+                return obj
             else:
                 return None
 
@@ -31,18 +32,24 @@ class BaseAST:
         self.parent = value
 
 
+
+
 # Определение переменной "var x int"
 class VarDecAST(BaseAST):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.name = ""
         self.type = None
+        self.value = None
 
     def set_name(self, value: str) -> None:
         self.name = value
 
     def set_type(self, value) -> None:
         self.type = value
+
+    def set_value(self, value):
+        self.value = value
 
     def code_gen(self):
         pass
@@ -75,14 +82,41 @@ class DoubleNumericAST(BaseAST):
         pass
 
 
-# функция
-class FunctionDefAST(BaseAST):
-    def __init__(self, name: str, args, t: int, body, parent=None):
+# составное выражение, им является базовый узел, и тело функций
+class CompoundExpression(BaseAST):
+    def __init__(self, parent=None):
         super().__init__(parent)
-        self.name = name
-        self.args = args
+        self.order_operations = []
+
+    def set_child(self, obj: BaseAST) -> None:
+        obj.set_parent(self)
+        self.order_operations.append(obj)
+
+    def code_gen(self):
+        pass
+
+
+# функция
+class FunctionDefAST(CompoundExpression):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.name = ""
+        self.args = []
+        self.type = -1
+        self.body = None
+
+    def set_name(self, value):
+        self.name = value
+
+    def set_body(self, obj):
+        self.body = obj
+
+    def set_type(self, t):
         self.type = t
-        self.body = body
+
+    def add_arg(self, arg):
+        self.args.append(arg)
+        self.add_name(arg.name, arg)
 
     def code_gen(self):
         pass
@@ -98,18 +132,6 @@ class Body(BaseAST):
 
     def add_expr(self, expr):
         self.expr.append(expr)
-
-    def code_gen(self):
-        pass
-
-
-class CompoundExpression(BaseAST):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.index = 0
-
-    def set_index(self, value):
-        self.index = value
 
     def code_gen(self):
         pass
@@ -155,61 +177,61 @@ class BinaryAST(BaseAST):
         pass
 
 
-def generate_ast(tokens_str, tokens_type):
-    i = 0
-    error = ""
-    while i < len(tokens_type):
-        if tokens_type[i] == my_token.DEF_FUNC:
-            name_func = ""
-            func_type = 0
-            i += 1
-            while tokens_type[i] != my_token.RBRACE:
-                if (tokens_type[i] == my_token.IDENTIFIER) and (tokens_type[i-1] == my_token.DEF_FUNC):
-                    name_func = tokens_str[i]
-                    i += 1
-                    continue
-                if tokens_type[i] == my_token.RPAR:
-                    i += 1
-                    args = []
-                    while tokens_type[i] != my_token.LPAR:
-                        if tokens_type[i] == my_token.IDENTIFIER:
-                            if is_type(tokens_type[i + 1]):
-                                a = VarDecAST(tokens_type[i], tokens_type[i+1])
-                                args.append(a)
-                                i += 2
-                            else:
-                                error = "Ошибка объявления функции " + name_func
-                                print(error)
-                                return None, error
-                    i += 1
-                if tokens_type[i] == my_token.ARROW:
-                    i += 1
-                    if is_type(tokens_type[i]):
-                        func_type = tokens_type[i]
-                    else:
-                        error = "Ошибка объявления функции " + name_func + ". Не указан возвращаемый тип."
-                        print(error)
-                        return None, error
-                if tokens_type[i] == my_token.LBRACE:
-                    i += 1
-                    while tokens_type[i] != my_token.RBRACE:
-                        pass
-#                     TODO: дописать!!!!
+# def generate_ast(tokens_str, tokens_type):
+#     i = 0
+#     error = ""
+#     while i < len(tokens_type):
+#         if tokens_type[i] == my_token.DEF_FUNC:
+#             name_func = ""
+#             func_type = 0
+#             i += 1
+#             while tokens_type[i] != my_token.RBRACE:
+#                 if (tokens_type[i] == my_token.IDENTIFIER) and (tokens_type[i-1] == my_token.DEF_FUNC):
+#                     name_func = tokens_str[i]
+#                     i += 1
+#                     continue
+#                 if tokens_type[i] == my_token.RPAR:
+#                     i += 1
+#                     args = []
+#                     while tokens_type[i] != my_token.LPAR:
+#                         if tokens_type[i] == my_token.IDENTIFIER:
+#                             if is_type(tokens_type[i + 1]):
+#                                 a = VarDecAST(tokens_type[i], tokens_type[i+1])
+#                                 args.append(a)
+#                                 i += 2
+#                             else:
+#                                 error = "Ошибка объявления функции " + name_func
+#                                 print(error)
+#                                 return None, error
+#                     i += 1
+#                 if tokens_type[i] == my_token.ARROW:
+#                     i += 1
+#                     if is_type(tokens_type[i]):
+#                         func_type = tokens_type[i]
+#                     else:
+#                         error = "Ошибка объявления функции " + name_func + ". Не указан возвращаемый тип."
+#                         print(error)
+#                         return None, error
+#                 if tokens_type[i] == my_token.LBRACE:
+#                     i += 1
+#                     while tokens_type[i] != my_token.RBRACE:
+#                         pass
+# #                     TODO: дописать!!!!
 
 
-def compound_expression_parse(i, tokens_str, tokens_type, parent):
-    j = 0
-    while tokens_type[i] != my_token.RBRACE:
-        exp = CompoundExpression()
-        exp.set_index(j)
-        exp.set_parent(parent)
-        if tokens_type[i] == my_token.SEMI:
-            j += 1
-            v, i, err = var_parse(i, tokens_str, tokens_type, exp)
-            if err != "":
-                pass
-
-#         TODO: дописать!!!
+# def compound_expression_parse(i, tokens_str, tokens_type, parent):
+#     j = 0
+#     while tokens_type[i] != my_token.RBRACE:
+#         exp = CompoundExpression()
+#         exp.set_index(j)
+#         exp.set_parent(parent)
+#         if tokens_type[i] == my_token.SEMI:
+#             j += 1
+#             v, i, err = var_parse(i, tokens_str, tokens_type, exp)
+#             if err != "":
+#                 pass
+#
+# #         TODO: дописать!!!
 
 
 def is_type(token):
@@ -230,4 +252,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

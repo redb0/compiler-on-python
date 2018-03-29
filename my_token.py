@@ -56,6 +56,9 @@ BOOL = 32
 RETURN = 33
 ARROW = 34
 
+INT_NUMBER = 35
+DOUBLE_NUMBER = 36
+
 END_OF_STR = 49
 END_OF_FILE = 50
 
@@ -92,6 +95,23 @@ tokens = {"def": DEF_FUNC,
           "bool": BOOL,
           "return": RETURN,
           "->": ARROW}
+
+
+def get_priority(t: int) -> int:
+    if t in [AND, OR, NOT]:
+        return 8
+    elif t in [MINUS, PLUS]:
+        return 4
+    elif t in [OPERATOR_MUL, OPERATOR_DIV]:
+        return 3
+    elif t in [OPERATOR_POWER]:
+        return 2
+    elif t in [LARGER, LARGER_OR_EQUAL, LESS, LESS_OR_EQUAL]:
+        return 5
+    elif t in [ASSIGN]:
+        return 7
+    elif t in [NOT_EQUAL, EQUAL]:
+        return 6
 
 
 def is_operator(token: int) -> bool:
