@@ -41,22 +41,30 @@ def get_rpn(i: int, tokens_type):
                     stack_idx.append(i)
             i += 1
             continue
-        elif tokens_type[i] == my_token.RPAR:
+        elif tokens_type[i] == my_token.LPAR:
             stack_idx.append(i)
             i += 1
             continue
-        elif tokens_type[i] == my_token.LPAR:
-            while stack_idx[-1] != my_token.RPAR:
+        elif tokens_type[i] == my_token.RPAR:
+            # if len(stack_idx) != 0:
+            while tokens_type[stack_idx[-1]] != my_token.LPAR:
                 res.append(stack_idx.pop())
+                if len(stack_idx) == 0:
+                    break
+            # else:
+            #     stack_idx.append(i)
             if stack_idx[-1] == my_token.RPAR:
                 stack_idx.pop()
             else:
                 error = "В выражжении неправельно расставлены скобки"
             i += 1
             continue
+        else:
+            break
     if len(stack_idx) != 0:
         while len(stack_idx) != 0:
             res.append(stack_idx.pop())
+    print(res)
     return i, res, error
 
 

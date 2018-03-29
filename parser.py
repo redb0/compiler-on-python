@@ -214,20 +214,6 @@ def func_def_parse(i: int, tokens_str: List[str], tokens_type, parent=None):
     return dunc_obj, i, error
 
 
-
-# разбо составного выражения, хранит имена (область видимости)
-# def compound_expression_parse(i: int, tokens_str: List[str], tokens_type, parent=None):
-#     compound_expression = ast.CompoundExpression(parent)  # базовый узел
-#     while tokens_type[i] != my_token.RBRACE:
-#         obj, i, error = parse(i, tokens_str, tokens_type, parent=compound_expression)
-#         if error != "":
-#             print(error)
-#             return None, i, error
-#         compound_expression.set_child(obj)
-#         i += 1
-#     return compound_expression
-
-
 def compound_expression_parse(i: int, tokens_str: List[str], tokens_type, compound_expression):
     obj, i, error = parse(i, tokens_str, tokens_type, parent=compound_expression)
     if error != "":
@@ -263,7 +249,81 @@ def parse(i: int, tokens_str: List[str], tokens_type, parent=None):
             if obj is None:
                 print(error)
                 return None
+    elif tokens_type[i] == my_token.DO:
+        # вызов разбора do while
+        obj, i, error = expr_do_while_parse(i, tokens_str, tokens_type, parent)
+    elif tokens_type[i] == my_token.WHILE:
+        # вызок разбора while
+        obj, i, error = expr_while_parse(i, tokens_str, tokens_type, parent)
     return obj, i, error
+
+
+def expr_while_parse(i: int, tokens_str: List[str], tokens_type, parent=None):
+    while_expr = None
+    error = ""
+    while tokens_type[i] != my_token.RBRACE:
+        if tokens_type[i] == my_token.WHILE:
+            while_expr = ast.ExprWhileAST(parent)
+            i += 1
+            continue
+        elif (tokens_type[i] == my_token.IDENTIFIER) or \
+             (tokens_type[i] == my_token.INT_NUMBER) or (tokens_type[i] == my_token.DOUBLE_NUMBER):
+            # выражение TODO: разбор условия
+            expr = ast.CompoundExpression(while_expr)
+            expr, i, error = compound_expression_parse(i, tokens_str, tokens_type, expr)
+            if error != "":
+                print(error)
+                return None, i, error
+            while_expr.set_expression(expr)
+
+        elif tokens_type[i] == my_token.LBRACE:
+            i += 1
+            # разбор тела
+            compound_expression = ast.CompoundExpression(parent=while_expr)
+            while tokens_type[i] != my_token.RBRACE:
+                compound_expression, i, error = compound_expression_parse(i, tokens_str,
+                                                                          tokens_type, compound_expression)
+                i += 1
+            if error != "":
+                print(error)
+                return None, i, error
+            while_expr.set_body(compound_expression)
+    return while_expr, i, error
+
+
+def expr_do_while_parse(i: int, tokens_str: List[str], tokens_type, parent=None):
+    error = ""
+    expr_do = None
+    while tokens_type[i] != my_token.WHILE:
+        if tokens_type[i] == my_token.DO:
+            expr_do = ast.ExprDoWhileAST(parent)
+            i += 1
+            continue
+        # elif tokens_type[i] == my_token.RBRACE:
+        #     i += 1
+        #     continue
+        elif tokens_type[i] == my_token.LBRACE:
+            # разбор тела цыкла
+            compound_expression = ast.CompoundExpression(parent=expr_do)
+            while tokens_type[i] != my_token.RBRACE:
+                compound_expression, i, error = compound_expression_parse(i, tokens_str,
+                                                                          tokens_type, compound_expression)
+                i += 1
+            if error != "":
+                print(error)
+                return None, i, error
+            expr_do.set_body(compound_expression)
+
+    if tokens_type[i] == my_token.WHILE:
+        # разбор условия (выражение) TODO: разбор условия
+        expr = ast.CompoundExpression(expr_do)
+        expr, i, error = compound_expression_parse(i, tokens_str, tokens_type, expr)
+        if error != "":
+            print(error)
+            return None, i, error
+        expr_do.set_expression(expr)
+
+    return expr_do, i, error
 
 
 def main():

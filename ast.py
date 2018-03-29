@@ -32,8 +32,6 @@ class BaseAST:
         self.parent = value
 
 
-
-
 # Определение переменной "var x int"
 class VarDecAST(BaseAST):
     def __init__(self, parent=None):
@@ -176,6 +174,51 @@ class BinaryAST(BaseAST):
     def code_gen(self):
         pass
 
+
+# условие if {...} else {...}
+class ExprIfAST(CompoundExpression):
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+        self.expression = None
+        self.body = None
+        self.else_body = None
+
+    def set_expression(self, expr):
+        self.expression = expr
+
+    def set_body(self, obj):
+        self.body = obj
+
+    def set_else(self, expr):
+        self.else_body = expr
+
+
+# цикл while ... {...}
+class ExprWhileAST(CompoundExpression):
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+        self.expression = None
+        self.body = None
+
+    def set_expression(self, expr):
+        self.expression = expr
+
+    def set_body(self, obj):
+        self.body = obj
+
+
+# цикл do {...} while ...
+class ExprDoWhileAST(CompoundExpression):
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+        self.expression = None
+        self.body = None
+
+    def set_expression(self, expr):
+        self.expression = expr
+
+    def set_body(self, obj):
+        self.body = obj
 
 # def generate_ast(tokens_str, tokens_type):
 #     i = 0
