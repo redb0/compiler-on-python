@@ -51,6 +51,19 @@ class VarDecAST(BaseAST):
         pass
 
 
+class VarDefAST(BaseAST):
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+        self.var_dec = None
+        self.value = None
+
+    def set_declaration(self, obj: VarDecAST) -> None:
+        self.var_dec = obj
+
+    def set_value(self, value) -> None:
+        self.value = value
+
+
 class IntNumericAST(BaseAST):
     def __init__(self, value: int, parent=None):
         super().__init__(parent)
@@ -79,6 +92,17 @@ class CompoundExpression(BaseAST):
         obj.set_parent(self)
         self.order_operations.append(obj)
 
+    def get_var_def(self, name: str):
+        for i in range(len(self.order_operations) - 1, 0, -1):
+            # if self.order_operations[i].__class__ == VarDefAST:
+            #     if self.order_operations[i].var_dec.name == name:
+            #         return self.order_operations[i]
+            if self.order_operations[i].__class__ == BinaryAST:
+                if (self.order_operations[i].operator == 12) and (self.order_operations[i].lhs.__class__ == VarDecAST):
+                    if self.order_operations[i].lhs.name == name:
+                        return self.order_operations[i]
+        return None
+
     def code_gen(self):
         pass
 
@@ -89,6 +113,7 @@ class FunctionDefAST(CompoundExpression):
         super().__init__(parent)
         self.name = ""
         self.args = []
+        self.return_values = []
         self.type = -1
         self.body = None
 
@@ -104,6 +129,9 @@ class FunctionDefAST(CompoundExpression):
     def add_arg(self, arg):
         self.args.append(arg)
         self.add_name(arg.name, arg)
+
+    def add_return_value(self, obj):
+        self.return_values.append(obj)
 
     def code_gen(self):
         pass

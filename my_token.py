@@ -114,6 +114,13 @@ def get_priority(t: int) -> int:
         return 6
 
 
+def is_number(token: int) -> bool:
+    number = [INT_NUMBER, DOUBLE_NUMBER]
+    if token in number:
+        return True
+    return False
+
+
 def is_operator(token: int) -> bool:
     op = [OPERATOR_UM, OPERATOR_POWER, OPERATOR_MUL, OPERATOR_DIV,
           PLUS, MINUS,

@@ -54,6 +54,53 @@ def var_parse(i: int, tokens_str, tokens_type, parent) -> Tuple[Union[ast.VarDec
             return None, i, error
 
 
+def var_def_parse(i: int, tokens_str, tokens_type, parent: ast.CompoundExpression) -> Tuple[Union[ast.VarDefAST, None], int, str]:
+    error = ""
+    var_def = None
+    if (tokens_type[i] == my_token.IDENTIFIER) and (tokens_type[i + 1] == my_token.ASSIGN):
+        obj = parent.get_names(tokens_str[i])
+        if obj is None:
+            error = "Переменная с именем " + tokens_str[i] + " не объявлена."
+            print(error)
+            return None, i, error
+        var_def = ast.VarDefAST(parent)
+        var_def.set_declaration(obj)
+        i += 2
+        if (tokens_type[i] == my_token.IDENTIFIER) or my_token.is_number(tokens_type[i]):
+            if my_token.is_operator(tokens_type[i + 1]):
+                obj, i, error = bin_op_parse(i, tokens_str, tokens_type, parent)
+                if obj is None:
+                    print(error)
+                    return None, i, error
+                var_def.set_value(obj)
+            # elif tokens_type[i + 1] == my_token.SEMI:
+            elif tokens_type[i + 1] == my_token.LPAR:
+                j = i + 1
+                while tokens_type[j] != my_token.RPAR:
+                    j += 1
+                if tokens_type[j] == my_token.RPAR:
+                    j += 1
+                if my_token.is_operator(tokens_type[j + 1]):
+                    obj, i, error = bin_op_parse(i, tokens_str, tokens_type, parent)
+                    if obj is None:
+                        print(error)
+                        return None, i, error
+                    var_def.set_value(obj)
+            else:
+                if (tokens_type[i] == my_token.INT_NUMBER) and (var_def.var_dec.type == 'int'):
+                    var_def.set_value(int(tokens_str[i]))
+                elif (tokens_type[i] == my_token.DOUBLE_NUMBER) and (var_def.var_dec.type == 'double'):
+                    var_def.set_value(float(tokens_str[i]))
+                elif tokens_type[i] == my_token.IDENTIFIER:
+                    obj = parent.get_var_def(tokens_str[i])
+                    if obj is not None:
+                        error = "Переменная с именем " + tokens_str[i] + " не инициализирована."
+                        print(error)
+                        return None, i, error
+                    var_def.set_value(obj)
+    return var_def, i, error
+
+
 def func_parse(i: int, tokens_str, tokens_type, parent: ast.BaseAST) \
         -> Tuple[Union[ast.FunctionDefAST, None], int, str]:
     pass
@@ -218,6 +265,18 @@ def func_def_parse(i: int, tokens_str: List[str], tokens_type, parent=None):
             if error != "":
                 print(error)
                 return None, i, error
+        # elif tokens_type[i] == my_token.RETURN:
+        #     i += 1
+        #     obj, i, error = expr_parse(i, tokens_str, tokens_type, parent)
+        #     if obj is None:
+        #         print(error)
+        #         return None
+        #     if parent.__class__ == ast.FunctionDefAST:
+        #         parent.add_return_value(obj)
+        #     else:
+        #         error = "Недопустимая конструкция: return в " + parent.__class__.__name__
+        #         print(error)
+        #         return None
     return dunc_obj, i, error
 
 
@@ -228,6 +287,54 @@ def compound_expression_parse(i: int, tokens_str: List[str], tokens_type, compou
         return None, i, error
     compound_expression.set_child(obj)
     return compound_expression, i, error
+
+
+def expr_parse(i: int, tokens_str: List[str], tokens_type, parent=None):
+    if (tokens_type[i] == my_token.IDENTIFIER) or my_token.is_number(tokens_type[i]):
+        if my_token.is_operator(tokens_type[i + 1]):
+            obj, i, error = bin_op_parse(i, tokens_str, tokens_type, parent)
+            if obj is None:
+                print(error)
+                return None, i, error
+            return obj, i, ""
+        if tokens_type[i] == my_token.IDENTIFIER:
+            # if my_token.is_operator(tokens_type[i + 1]):
+            #     obj, i, error = bin_op_parse(i, tokens_str, tokens_type, parent)
+            #     if obj is not None:
+            #         print(error)
+            #         return None, i, error
+            #     return obj, i, ""
+            if tokens_type[i + 1] == my_token.RPAR:
+                j = i + 1
+                while tokens_type[j] != my_token.LPAR:
+                    j += 1
+                if tokens_type[j] == my_token.LPAR:
+                    j += 1
+                if my_token.is_operator(tokens_type[j]):
+                    obj, i, error = bin_op_parse(i, tokens_str, tokens_type, parent)
+                    if obj is None:
+                        print(error)
+                        return None, i, error
+                    return obj, i, ""
+                else:
+                    obj, i, error = func_call_parse(i, tokens_str, tokens_type, parent)
+                    if obj is None:
+                        print(error)
+                        return None, i, error
+                    return obj, i, ""
+            else:
+                obj = parent.get_var_def(tokens_str[i])
+                if obj is None:
+                    error = "Переменная с именем " + tokens_str[i] + " не инициализирована."
+                    print(error)
+                    return None, i, error
+                return obj, i, ""
+        elif tokens_type[i] == my_token.INT_NUMBER:
+            obj = ast.IntNumericAST(int(tokens_str[i]))
+            return obj, i, ""
+        elif tokens_type[i] == my_token.DOUBLE_NUMBER:
+            obj = ast.DoubleNumericAST(float(tokens_str[i]))
+            return obj, i, ""
 
 
 def parse(i: int, tokens_str: List[str], tokens_type, parent=None):
@@ -262,6 +369,19 @@ def parse(i: int, tokens_str: List[str], tokens_type, parent=None):
     elif tokens_type[i] == my_token.WHILE:
         # вызок разбора while
         obj, i, error = expr_while_parse(i, tokens_str, tokens_type, parent)
+    elif tokens_type[i] == my_token.RETURN:
+        i += 1
+        obj, i, error = expr_parse(i, tokens_str, tokens_type, parent)
+        if obj is None:
+            print(error)
+            return None
+        if parent.__class__ == ast.FunctionDefAST:
+            parent.add_return_value(obj)
+            i += 1
+        else:
+            error = "Недопустимая конструкция: return в " + parent.__class__.__name__
+            print(error)
+            return None
     return obj, i, error
 
 
