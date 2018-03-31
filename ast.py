@@ -1,6 +1,8 @@
-# from llvm import Value
+import llvm
+import llvm.core
 
 import my_token
+from code_generator import get_type
 
 
 # базовый класс
@@ -9,7 +11,7 @@ class BaseAST:
         self.parent = parent
         self.names = {}
 
-    def code_gen(self):
+    def code_gen(self, module):
         pass
 
     def get_names(self, name: str):
@@ -47,8 +49,11 @@ class VarDecAST(BaseAST):
     def set_value(self, value):
         self.value = value
 
-    def code_gen(self):
-        pass
+    def code_gen(self, module):
+        # TODO: не понял как сделать локальную переменную
+        t = get_type(self.type)
+        gv = module.add_global_variable(t, self.name)
+        return gv
 
 
 class VarDefAST(BaseAST):
@@ -65,21 +70,29 @@ class VarDefAST(BaseAST):
 
 
 class IntNumericAST(BaseAST):
+    """Целое число"""
     def __init__(self, value: int, parent=None):
         super().__init__(parent)
         self.value = value
 
-    def code_gen(self):
-        pass
+    def code_gen(self, module):
+        # тип - 32-bit целое число
+        int_type = llvm.core.Type.int()
+        const = llvm.core.Constant.int(int_type, self.value)
+        return const
 
 
 class DoubleNumericAST(BaseAST):
+    """Число с плавающей запятой"""
     def __init__(self, value: float, parent=None):
         super().__init__(parent)
         self.value = value
 
-    def code_gen(self):
-        pass
+    def code_gen(self, module):
+        # тип - 64-bit число с плавающей запятой
+        double_type = llvm.core.Type.double()
+        const = llvm.core.Constant.int(double_type, self.value)
+        return const
 
 
 # составное выражение, им является базовый узел, и тело функций
@@ -103,7 +116,7 @@ class CompoundExpression(BaseAST):
                         return self.order_operations[i]
         return None
 
-    def code_gen(self):
+    def code_gen(self, module):
         pass
 
 
@@ -133,23 +146,56 @@ class FunctionDefAST(CompoundExpression):
     def add_return_value(self, obj):
         self.return_values.append(obj)
 
-    def code_gen(self):
-        pass
+    def code_gen(self, module):
+        # получаем возвращаемый функцией тип
+        ret_type = get_type(self.type)
+
+        # составляем список типов аргуметнов
+        args_type = []
+        for arg in self.args:
+            t = get_type(arg.type)
+            args_type.append(t)
+
+        # составляем сигнатуру функции
+        ty_func = llvm.core.Type.function(ret_type, args_type)
+
+        # добавляем функцию к модулю
+        func = module.add_function(ty_func, self.name)
+
+        # называем аргументы функции
+        for i in range(len(self.args)):
+            func.args[i].name = self.args[i].name
+
+        # Задаем базовый блок функции ("basic block") -
+        # набор инструций, заканчивающийся return
+        # По соглашению первый блок называется «запись».
+        bb = func.append_basic_block("entry")
+
+        # Добавление инструкций в блок
+        builder = llvm.core.Builder.new(bb)
+
+        # Созднание инструкций в базовом блоке.
+        # команда возврата значения - ret
+        # TODO: надо обойти ASTтела функции и сгенерить его.
+        tmp = builder.add(f_sum.args[0], f_sum.args[1], "tmp")
+        builder.ret(tmp)
+
+        print(module)
 
 
-class Body(BaseAST):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.expr = []
-
-    def set_parent(self, value):
-        self.parent = value
-
-    def add_expr(self, expr):
-        self.expr.append(expr)
-
-    def code_gen(self):
-        pass
+# class Body(BaseAST):
+#     def __init__(self, parent=None):
+#         super().__init__(parent)
+#         self.expr = []
+#
+#     def set_parent(self, value):
+#         self.parent = value
+#
+#     def add_expr(self, expr):
+#         self.expr.append(expr)
+#
+#     def code_gen(self, module):
+#         pass
 
 
 # вызов функции
@@ -162,7 +208,7 @@ class FunctionCallAST(BaseAST):
     def set_parent(self, value):
         self.parent = value
 
-    def code_gen(self):
+    def code_gen(self, module):
         pass
 
 
@@ -188,7 +234,7 @@ class BinaryAST(BaseAST):
         else:
             return False
 
-    def code_gen(self):
+    def code_gen(self, module):
         pass
 
 
@@ -209,6 +255,9 @@ class ExprIfAST(CompoundExpression):
     def set_else(self, expr):
         self.else_body = expr
 
+    def code_gen(self, module):
+        pass
+
 
 # цикл while ... {...}
 class ExprWhileAST(CompoundExpression):
@@ -222,6 +271,9 @@ class ExprWhileAST(CompoundExpression):
 
     def set_body(self, obj):
         self.body = obj
+
+    def code_gen(self, module):
+        pass
 
 
 # цикл do {...} while ...
@@ -237,11 +289,14 @@ class ExprDoWhileAST(CompoundExpression):
     def set_body(self, obj):
         self.body = obj
 
+    def code_gen(self, module):
+        pass
+
 
 def is_type(token):
     """
     Функция проверки на допустимый тип.
-    :param token: точен, представлен в виде целого числа.
+    :param token: токен, представлен в виде целого числа.
     :return: True - если допустимый тип, False - в противном случае.
     """
     t = [my_token.INT, my_token.DOUBLE, my_token.BOOL]
@@ -253,6 +308,7 @@ def is_type(token):
 
 def main():
     pass
+
 
 if __name__ == "__main__":
     main()
