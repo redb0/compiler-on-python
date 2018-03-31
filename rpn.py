@@ -12,12 +12,12 @@ def get_rpn(i: int, tokens_type):
             continue
         elif tokens_type[i] == my_token.IDENTIFIER:
             res.append(i)
-            if tokens_type[i + 1] == my_token.RPAR:
+            if tokens_type[i + 1] == my_token.LPAR:
                 i += 1
-                while tokens_type[i] != my_token.LPAR:
+                while tokens_type[i] != my_token.RPAR:
                     i += 1
-                if tokens_type[i] == my_token.LPAR:
-                    i += 1
+                # if tokens_type[i] == my_token.LPAR:
+                #     i += 1
             i += 1
             continue
         elif my_token.is_operator(tokens_type[i]):
@@ -34,7 +34,8 @@ def get_rpn(i: int, tokens_type):
                 if len(stack_idx) == 0:
                     stack_idx.append(i)
                 else:
-                    while my_token.get_priority(tokens_type[i]) >= my_token.get_priority(tokens_type[stack_idx[-1]]):
+                    while (tokens_type[stack_idx[-1]] != my_token.LPAR) and \
+                          (my_token.get_priority(tokens_type[i]) >= my_token.get_priority(tokens_type[stack_idx[-1]])):
                         res.append(stack_idx.pop())
                         if len(stack_idx) == 0:
                             break
@@ -53,7 +54,7 @@ def get_rpn(i: int, tokens_type):
                     break
             # else:
             #     stack_idx.append(i)
-            if stack_idx[-1] == my_token.RPAR:
+            if tokens_type[stack_idx[-1]] == my_token.LPAR:
                 stack_idx.pop()
             else:
                 error = "В выражжении неправельно расставлены скобки"

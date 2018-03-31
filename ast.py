@@ -1,5 +1,3 @@
-from typing import Tuple, Union
-
 # from llvm import Value
 
 import my_token
@@ -52,15 +50,6 @@ class VarDecAST(BaseAST):
     def code_gen(self):
         pass
 
-
-# присвоение значения переменной
-# class VarDefAST(BaseAST):
-#     def __init__(self, declaration, parent=None):
-#         super().__init__(parent)
-#         self.var_dec = declaration
-#
-#     def code_gen(self):
-#         pass
 
 class IntNumericAST(BaseAST):
     def __init__(self, value: int, parent=None):
@@ -219,62 +208,6 @@ class ExprDoWhileAST(CompoundExpression):
 
     def set_body(self, obj):
         self.body = obj
-
-# def generate_ast(tokens_str, tokens_type):
-#     i = 0
-#     error = ""
-#     while i < len(tokens_type):
-#         if tokens_type[i] == my_token.DEF_FUNC:
-#             name_func = ""
-#             func_type = 0
-#             i += 1
-#             while tokens_type[i] != my_token.RBRACE:
-#                 if (tokens_type[i] == my_token.IDENTIFIER) and (tokens_type[i-1] == my_token.DEF_FUNC):
-#                     name_func = tokens_str[i]
-#                     i += 1
-#                     continue
-#                 if tokens_type[i] == my_token.RPAR:
-#                     i += 1
-#                     args = []
-#                     while tokens_type[i] != my_token.LPAR:
-#                         if tokens_type[i] == my_token.IDENTIFIER:
-#                             if is_type(tokens_type[i + 1]):
-#                                 a = VarDecAST(tokens_type[i], tokens_type[i+1])
-#                                 args.append(a)
-#                                 i += 2
-#                             else:
-#                                 error = "Ошибка объявления функции " + name_func
-#                                 print(error)
-#                                 return None, error
-#                     i += 1
-#                 if tokens_type[i] == my_token.ARROW:
-#                     i += 1
-#                     if is_type(tokens_type[i]):
-#                         func_type = tokens_type[i]
-#                     else:
-#                         error = "Ошибка объявления функции " + name_func + ". Не указан возвращаемый тип."
-#                         print(error)
-#                         return None, error
-#                 if tokens_type[i] == my_token.LBRACE:
-#                     i += 1
-#                     while tokens_type[i] != my_token.RBRACE:
-#                         pass
-# #                     TODO: дописать!!!!
-
-
-# def compound_expression_parse(i, tokens_str, tokens_type, parent):
-#     j = 0
-#     while tokens_type[i] != my_token.RBRACE:
-#         exp = CompoundExpression()
-#         exp.set_index(j)
-#         exp.set_parent(parent)
-#         if tokens_type[i] == my_token.SEMI:
-#             j += 1
-#             v, i, err = var_parse(i, tokens_str, tokens_type, exp)
-#             if err != "":
-#                 pass
-#
-# #         TODO: дописать!!!
 
 
 def is_type(token):

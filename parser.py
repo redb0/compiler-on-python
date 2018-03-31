@@ -59,7 +59,6 @@ def func_parse(i: int, tokens_str, tokens_type, parent: ast.BaseAST) \
     pass
 
 
-# Сделано правильно!!!
 def func_call_parse(i: int, tokens_str, tokens_type, parent) -> Tuple[Union[ast.FunctionCallAST, None], int, str]:
     error = ""
     name = ""
@@ -67,11 +66,19 @@ def func_call_parse(i: int, tokens_str, tokens_type, parent) -> Tuple[Union[ast.
     if tokens_type[i] == my_token.IDENTIFIER:
         name = tokens_str[i]
     i += 1
-    if tokens_type[i] == my_token.RPAR:
+    if tokens_type[i] == my_token.LPAR:
         i += 1
-        while tokens_type[i] != my_token.LPAR:
+        while tokens_type[i] != my_token.RPAR:
             if tokens_type[i] == my_token.NUMBER:
                 args.append(tokens_str[i])
+            elif tokens_type[i] == my_token.IDENTIFIER:
+                obj = parent.get_names(tokens_str[i])
+                if obj is None:
+                    error = "Переменная с имененем " + tokens_str[i] + " не объявлена."
+                    print(error)
+                    return None, i, error
+                args.append(tokens_str[i])
+            i += 1
 
     if name != "":
         obj = parent.get_names(name)
@@ -89,7 +96,6 @@ def func_call_parse(i: int, tokens_str, tokens_type, parent) -> Tuple[Union[ast.
         return None, i, error
 
 
-# Сделано правильно!!!
 def bin_op_parse(i: int, tokens_str, tokens_type, parent: ast.BaseAST) -> Tuple[Union[ast.BinaryAST, None], int, str]:
     error = ""
     root = None
@@ -116,7 +122,7 @@ def bin_op_parse(i: int, tokens_str, tokens_type, parent: ast.BaseAST) -> Tuple[
                 print(error)
                 return None, rpn[k], error
             else:
-                if tokens_type[rpn[k] + 1] == my_token.RPAR:
+                if tokens_type[rpn[k] + 1] == my_token.LPAR:
                     func_call_obj, i, error = func_call_parse(rpn[k], tokens_str, tokens_type, parent)
                     if func_call_obj is None:
                         # error = "Функция с именем " + tokens_str[i] + " вызвана некорректно."
@@ -168,6 +174,7 @@ def func_def_parse(i: int, tokens_str: List[str], tokens_type, parent=None):
                 error = "Переменная с именем " + tokens_str[i] + " уже объявлена."
                 print(error)
                 return None, i, error
+            parent.add_name(tokens_str[i], dunc_obj)
             dunc_obj.set_name(tokens_str[i])
             i += 1
         elif tokens_type[i] == my_token.LPAR:
@@ -303,18 +310,21 @@ def expr_do_while_parse(i: int, tokens_str: List[str], tokens_type, parent=None)
         #     i += 1
         #     continue
         elif tokens_type[i] == my_token.LBRACE:
+            i += 1
             # разбор тела цыкла
             compound_expression = ast.CompoundExpression(parent=expr_do)
             while tokens_type[i] != my_token.RBRACE:
                 compound_expression, i, error = compound_expression_parse(i, tokens_str,
                                                                           tokens_type, compound_expression)
                 i += 1
+            i += 1
             if error != "":
                 print(error)
                 return None, i, error
             expr_do.set_body(compound_expression)
 
     if tokens_type[i] == my_token.WHILE:
+        i += 1
         # разбор условия (выражение) TODO: разбор условия
         expr = ast.CompoundExpression(expr_do)
         expr, i, error = compound_expression_parse(i, tokens_str, tokens_type, expr)
@@ -335,6 +345,7 @@ def main():
     print(tokens_type)
 
     root = base_parse(tokens_str, tokens_type)
+    print(root)
 
 
 if __name__ == "__main__":

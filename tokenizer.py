@@ -17,7 +17,7 @@ def get_token(code: str):
     error = ""
     i = 0
     while i < len(code):
-        print(i)
+        # print(i)
         c = code[i]
         if (c == ' ') or (c == '\n') or (c == ','):
             i += 1
