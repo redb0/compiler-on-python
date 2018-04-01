@@ -1,5 +1,8 @@
 from typing import Tuple, Union, List
 
+import llvm
+import llvm.core
+
 import ast
 import my_token
 
@@ -39,7 +42,7 @@ def var_parse(i: int, tokens_str, tokens_type, parent) -> Tuple[Union[ast.VarDec
             return None, i, error
         i += 1
         if ast.is_type(tokens_type[i]):
-            v.set_type(tokens_str[i])
+            v.set_type(tokens_type[i])
         else:
             error = "Ошибка объявления переменной. Некорректно указан тип."
             print(error)
@@ -457,15 +460,19 @@ def expr_do_while_parse(i: int, tokens_str: List[str], tokens_type, parent=None)
 
 
 def main():
-    with open("code.txt", 'r', encoding='utf-8') as f:
+    with open("code1.txt", 'r', encoding='utf-8') as f:
         code = f.read()
     # print(code)
     tokens_str, tokens_type = get_token(code)
     print(tokens_str)
     print(tokens_type)
 
-    root = base_parse(tokens_str, tokens_type)
+    root, i, error = base_parse(tokens_str, tokens_type)
     print(root)
+    print(error)
+    module = llvm.core.Module.new('my_module')
+    root.code_gen(module)
+    print(module)
 
 
 if __name__ == "__main__":

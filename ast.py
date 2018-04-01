@@ -49,11 +49,15 @@ class VarDecAST(BaseAST):
     def set_value(self, value):
         self.value = value
 
-    def code_gen(self, module):
+    def code_gen(self, module, builder=None):
         # TODO: не понял как сделать локальную переменную
         t = get_type(self.type)
-        gv = module.add_global_variable(t, self.name)
-        return gv
+        v = builder.alloca(t, name=self.name)
+        # gv = module.add_global_variable(t, self.name)
+        return v
+
+    def get_type(self):
+        return self.type
 
 
 class VarDefAST(BaseAST):
@@ -75,11 +79,14 @@ class IntNumericAST(BaseAST):
         super().__init__(parent)
         self.value = value
 
-    def code_gen(self, module):
+    def code_gen(self, module, builder=None):
         # тип - 32-bit целое число
         int_type = llvm.core.Type.int()
         const = llvm.core.Constant.int(int_type, self.value)
         return const
+
+    def get_type(self):
+        return 30
 
 
 class DoubleNumericAST(BaseAST):
@@ -88,11 +95,14 @@ class DoubleNumericAST(BaseAST):
         super().__init__(parent)
         self.value = value
 
-    def code_gen(self, module):
+    def code_gen(self, module, builder=None):
         # тип - 64-bit число с плавающей запятой
         double_type = llvm.core.Type.double()
         const = llvm.core.Constant.int(double_type, self.value)
         return const
+
+    def get_type(self):
+        return "double"
 
 
 # составное выражение, им является базовый узел, и тело функций
@@ -116,8 +126,12 @@ class CompoundExpression(BaseAST):
                         return self.order_operations[i]
         return None
 
-    def code_gen(self, module):
-        pass
+    def code_gen(self, module, bb=None):
+        # bb = module.append_basic_block(name_bb)
+        # builder = llvm.core.Builder.new(bb)
+        for op in self.order_operations:
+            op.code_gen(module, bb)
+        return module
 
 
 # функция
@@ -146,7 +160,7 @@ class FunctionDefAST(CompoundExpression):
     def add_return_value(self, obj):
         self.return_values.append(obj)
 
-    def code_gen(self, module):
+    def code_gen(self, module, name_bb='entry'):
         # получаем возвращаемый функцией тип
         ret_type = get_type(self.type)
 
@@ -173,12 +187,27 @@ class FunctionDefAST(CompoundExpression):
 
         # Добавление инструкций в блок
         builder = llvm.core.Builder.new(bb)
+        # builder
+        # bb = llvm.core.Builder
+        # llvm.core.Builder.new()
 
         # Созднание инструкций в базовом блоке.
         # команда возврата значения - ret
         # TODO: надо обойти ASTтела функции и сгенерить его.
-        tmp = builder.add(f_sum.args[0], f_sum.args[1], "tmp")
-        builder.ret(tmp)
+        # tmp = builder.add(f_sum.args[0], f_sum.args[1], "tmp")
+        # builder.ret(tmp)
+
+        # self.body.code_gen(module, builder)
+
+        for op in self.order_operations:
+            op.code_gen(module, builder)
+
+        # bb_ret = func.append_basic_block("ret_bblc")
+        # Добавление инструкций в блок
+        # builder = llvm.core.Builder.new(bb_ret)
+        for obj in self.return_values:
+            tmp = obj.code_gen(module, builder)
+            builder.ret(tmp)
 
         print(module)
 
@@ -208,8 +237,17 @@ class FunctionCallAST(BaseAST):
     def set_parent(self, value):
         self.parent = value
 
-    def code_gen(self, module):
+    def code_gen(self, module, builder=None):
         pass
+
+    def get_type(self):
+        t = self.func_callee.type
+        if t == 35:
+            return "int"
+        elif t == 36:
+            return "double"
+        else:
+            return None
 
 
 class BinaryAST(BaseAST):
@@ -234,8 +272,106 @@ class BinaryAST(BaseAST):
         else:
             return False
 
-    def code_gen(self, module):
-        pass
+    def get_type(self):
+        t1 = self.lhs.get_type()
+        t2 = self.rhs.get_type()
+        if t1 == t2:
+            return t1
+        else:
+            return None
+
+    def code_gen(self, module, builder=None):
+        code_lhs = self.lhs.code_gen(module, builder)
+        code_rhs = self.rhs.code_gen(module, builder)
+        t = self.get_type()
+        if t is None:
+            return None
+        if code_lhs is None or code_rhs is None:
+            return None
+        if self.operator == my_token.PLUS:
+            if t == my_token.INT:
+                tmp = builder.add(code_lhs, code_rhs, 'addtmp')
+                return tmp
+            elif t == "double":
+                tmp = builder.fadd(code_lhs, code_rhs, 'addtmp')
+                return tmp
+        elif self.operator == my_token.MINUS:
+            if t == "int":
+                tmp = builder.sub(code_lhs, code_rhs, 'subtmp')
+                return tmp
+            elif t == "double":
+                tmp = builder.fsub(code_lhs, code_rhs, 'subtmp')
+                return tmp
+        elif self.operator == my_token.OPERATOR_DIV:
+            if t == "int":
+                tmp = builder.div(code_lhs, code_rhs, 'divtmp')
+                return tmp
+            elif t == "double":
+                tmp = builder.fdiv(code_lhs, code_rhs, 'divtmp')
+                return tmp
+        elif self.operator == my_token.OPERATOR_MUL:
+            if t == "int":
+                tmp = builder.mul(code_lhs, code_rhs, 'multmp')
+                return tmp
+            elif t == "double":
+                tmp = builder.fmul(code_lhs, code_rhs, 'multmp')
+                return tmp
+        # не нашел есть ли в llvmpy операция возведения в степень
+        elif self.operator == my_token.OPERATOR_POWER:
+            # TODO: доделать
+            pass
+
+        elif self.operator == my_token.LESS:
+            if t == "int":
+                tmp = builder.icmp(llvm.core.IPRED_SLT, code_lhs, code_rhs, 'lttmp')
+                return tmp
+            elif t == "double":
+                tmp = builder.fcmp(llvm.core.RPRED_OLT, code_lhs, code_rhs, 'lttmp')
+                return tmp
+        elif self.operator == my_token.LESS_OR_EQUAL:
+            if t == "int":
+                tmp = builder.icmp(llvm.core.IPRED_SLE, code_lhs, code_rhs, 'letmp')
+                return tmp
+            elif t == "double":
+                tmp = builder.fcmp(llvm.core.RPRED_OLE, code_lhs, code_rhs, 'letmp')
+                return tmp
+        elif self.operator == my_token.LARGER:
+            if t == "int":
+                # SLE или ULE, чем отличаются???
+                tmp = builder.icmp(llvm.core.IPRED_SGT, code_lhs, code_rhs, 'gttmp')
+                return tmp
+            elif t == "double":
+                tmp = builder.fcmp(llvm.core.RPRED_OGT, code_lhs, code_rhs, 'gttmp')
+                return tmp
+        elif self.operator == my_token.LARGER_OR_EQUAL:
+            if t == "int":
+                # SLE или ULE, чем отличаются???
+                tmp = builder.icmp(llvm.core.IPRED_SGE, code_lhs, code_rhs, 'getmp')
+                return tmp
+            elif t == "double":
+                tmp = builder.fcmp(llvm.core.RPRED_OGE, code_lhs, code_rhs, 'getmp')
+                return tmp
+        elif self.operator == my_token.EQUAL:
+            if t == "int":
+                tmp = builder.icmp(llvm.core.IPRED_EQ, code_lhs, code_rhs, 'eqtmp')
+                return tmp
+            elif t == "double":
+                tmp = builder.fcmp(llvm.core.RPRED_OEQ, code_lhs, code_rhs, 'eqtmp')
+                return tmp
+        elif self.operator == my_token.NOT_EQUAL:
+            if t == "int":
+                tmp = builder.icmp(llvm.core.IPRED_NE, code_lhs, code_rhs, 'netmp')
+                return tmp
+            elif t == "double":
+                tmp = builder.fcmp(llvm.core.RPRED_ONE, code_lhs, code_rhs, 'netmp')
+                return tmp
+
+        elif self.operator == my_token.ASSIGN:
+            tmp = builder.store(code_rhs, code_lhs)
+            return tmp
+        else:
+            return None
+
 
 
 # условие if {...} else {...}
@@ -291,6 +427,27 @@ class ExprDoWhileAST(CompoundExpression):
 
     def code_gen(self, module):
         pass
+
+
+def is_valid_type(v1, v2):
+    t1 = None
+    t2 = None
+    if v1.__class__ == VarDecAST:
+        t1 = v1.type
+    elif v1.__class__ == IntNumericAST:
+        t1 = "int"
+    elif v1.__class__ == DoubleNumericAST:
+        t1 = "double"
+    if v2.__class__ == VarDecAST:
+        t2 = v2.type
+    elif v2.__class__ == IntNumericAST:
+        t2 = "int"
+    elif v2.__class__ == DoubleNumericAST:
+        t2 = "double"
+    if (t1 == t2) and all([t1, t2]):
+        return t1
+    else:
+        return None
 
 
 def is_type(token):
