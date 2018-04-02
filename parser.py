@@ -181,7 +181,9 @@ def bin_op_parse(i: int, tokens_str, tokens_type, parent: ast.BaseAST) -> Tuple[
                     else:
                         stack.append(func_call_obj)
                 else:
-                    stack.append(obj)
+                    var_def_obj = ast.VarDefAST(parent)
+                    var_def_obj.set_declaration(obj)
+                    stack.append(var_def_obj)
         if my_token.is_operator(tokens_type[rpn[k]]):
             bin_op = ast.BinaryAST()
             bin_op.set_op(tokens_type[rpn[k]])
@@ -326,12 +328,14 @@ def expr_parse(i: int, tokens_str: List[str], tokens_type, parent=None):
                         return None, i, error
                     return obj, i, ""
             else:
-                obj = parent.get_var_def(tokens_str[i])
-                if obj is None:
+                var_def_obj = parent.get_var_def(tokens_str[i])
+                if var_def_obj is None:
                     error = "Переменная с именем " + tokens_str[i] + " не инициализирована."
                     print(error)
                     return None, i, error
-                return obj, i, ""
+                # var_def_obj = ast.VarDefAST(parent)
+                # var_def_obj.set_declaration(obj)
+                return var_def_obj, i, ""
         elif tokens_type[i] == my_token.INT_NUMBER:
             obj = ast.IntNumericAST(int(tokens_str[i]))
             return obj, i, ""

@@ -40,6 +40,8 @@ class VarDecAST(BaseAST):
         self.type = None
         self.value = None
 
+        self._ptr = None
+
     def set_name(self, value: str) -> None:
         self.name = value
 
@@ -53,6 +55,7 @@ class VarDecAST(BaseAST):
         # TODO: не понял как сделать локальную переменную
         t = get_type(self.type)
         v = builder.alloca(t, name=self.name)
+        self._ptr = v
         # gv = module.add_global_variable(t, self.name)
         return v
 
@@ -71,6 +74,16 @@ class VarDefAST(BaseAST):
 
     def set_value(self, value) -> None:
         self.value = value
+
+    def get_type(self):
+        return self.var_dec.type
+
+    def code_gen(self, module, builder=None):
+        # tmp = builder.load(self.var_dec._ptr, self.var_dec.name)
+        # return tmp
+
+        return self.var_dec._ptr
+
 
 
 class IntNumericAST(BaseAST):
@@ -120,10 +133,14 @@ class CompoundExpression(BaseAST):
             # if self.order_operations[i].__class__ == VarDefAST:
             #     if self.order_operations[i].var_dec.name == name:
             #         return self.order_operations[i]
+            # if self.order_operations[i].__class__ == BinaryAST:
+            #     if (self.order_operations[i].operator == 12) and (self.order_operations[i].lhs.__class__ == VarDefAST):
+            #         if self.order_operations[i].lhs.var_dec.name == name:
+            #             return self.order_operations[i]
             if self.order_operations[i].__class__ == BinaryAST:
-                if (self.order_operations[i].operator == 12) and (self.order_operations[i].lhs.__class__ == VarDecAST):
-                    if self.order_operations[i].lhs.name == name:
-                        return self.order_operations[i]
+                if (self.order_operations[i].operator == 12) and (self.order_operations[i].lhs.__class__ == VarDefAST):
+                    if self.order_operations[i].lhs.var_dec.name == name:
+                        return self.order_operations[i].lhs
         return None
 
     def code_gen(self, module, bb=None):
@@ -179,6 +196,7 @@ class FunctionDefAST(CompoundExpression):
         # называем аргументы функции
         for i in range(len(self.args)):
             func.args[i].name = self.args[i].name
+            self.args[i]._ptr = func.args[i]
 
         # Задаем базовый блок функции ("basic block") -
         # набор инструций, заканчивающийся return
@@ -187,7 +205,7 @@ class FunctionDefAST(CompoundExpression):
 
         # Добавление инструкций в блок
         builder = llvm.core.Builder.new(bb)
-        # builder
+        # builder.di
         # bb = llvm.core.Builder
         # llvm.core.Builder.new()
 
@@ -296,21 +314,21 @@ class BinaryAST(BaseAST):
                 tmp = builder.fadd(code_lhs, code_rhs, 'addtmp')
                 return tmp
         elif self.operator == my_token.MINUS:
-            if t == "int":
+            if t == my_token.INT:
                 tmp = builder.sub(code_lhs, code_rhs, 'subtmp')
                 return tmp
             elif t == "double":
                 tmp = builder.fsub(code_lhs, code_rhs, 'subtmp')
                 return tmp
         elif self.operator == my_token.OPERATOR_DIV:
-            if t == "int":
-                tmp = builder.div(code_lhs, code_rhs, 'divtmp')
+            if t == my_token.INT:
+                tmp = builder.udiv(code_lhs, code_rhs, 'divtmp')
                 return tmp
             elif t == "double":
                 tmp = builder.fdiv(code_lhs, code_rhs, 'divtmp')
                 return tmp
         elif self.operator == my_token.OPERATOR_MUL:
-            if t == "int":
+            if t == my_token.INT:
                 tmp = builder.mul(code_lhs, code_rhs, 'multmp')
                 return tmp
             elif t == "double":
@@ -322,21 +340,21 @@ class BinaryAST(BaseAST):
             pass
 
         elif self.operator == my_token.LESS:
-            if t == "int":
+            if t == my_token.INT:
                 tmp = builder.icmp(llvm.core.IPRED_SLT, code_lhs, code_rhs, 'lttmp')
                 return tmp
             elif t == "double":
                 tmp = builder.fcmp(llvm.core.RPRED_OLT, code_lhs, code_rhs, 'lttmp')
                 return tmp
         elif self.operator == my_token.LESS_OR_EQUAL:
-            if t == "int":
+            if t == my_token.INT:
                 tmp = builder.icmp(llvm.core.IPRED_SLE, code_lhs, code_rhs, 'letmp')
                 return tmp
             elif t == "double":
                 tmp = builder.fcmp(llvm.core.RPRED_OLE, code_lhs, code_rhs, 'letmp')
                 return tmp
         elif self.operator == my_token.LARGER:
-            if t == "int":
+            if t == my_token.INT:
                 # SLE или ULE, чем отличаются???
                 tmp = builder.icmp(llvm.core.IPRED_SGT, code_lhs, code_rhs, 'gttmp')
                 return tmp
@@ -344,7 +362,7 @@ class BinaryAST(BaseAST):
                 tmp = builder.fcmp(llvm.core.RPRED_OGT, code_lhs, code_rhs, 'gttmp')
                 return tmp
         elif self.operator == my_token.LARGER_OR_EQUAL:
-            if t == "int":
+            if t == my_token.INT:
                 # SLE или ULE, чем отличаются???
                 tmp = builder.icmp(llvm.core.IPRED_SGE, code_lhs, code_rhs, 'getmp')
                 return tmp
@@ -352,14 +370,14 @@ class BinaryAST(BaseAST):
                 tmp = builder.fcmp(llvm.core.RPRED_OGE, code_lhs, code_rhs, 'getmp')
                 return tmp
         elif self.operator == my_token.EQUAL:
-            if t == "int":
+            if t == my_token.INT:
                 tmp = builder.icmp(llvm.core.IPRED_EQ, code_lhs, code_rhs, 'eqtmp')
                 return tmp
             elif t == "double":
                 tmp = builder.fcmp(llvm.core.RPRED_OEQ, code_lhs, code_rhs, 'eqtmp')
                 return tmp
         elif self.operator == my_token.NOT_EQUAL:
-            if t == "int":
+            if t == my_token.INT:
                 tmp = builder.icmp(llvm.core.IPRED_NE, code_lhs, code_rhs, 'netmp')
                 return tmp
             elif t == "double":
@@ -367,6 +385,7 @@ class BinaryAST(BaseAST):
                 return tmp
 
         elif self.operator == my_token.ASSIGN:
+
             tmp = builder.store(code_rhs, code_lhs)
             return tmp
         else:
