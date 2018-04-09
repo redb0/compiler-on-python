@@ -85,7 +85,6 @@ class VarDefAST(BaseAST):
         return self.var_dec._ptr
 
 
-
 class IntNumericAST(BaseAST):
     """Целое число"""
     def __init__(self, value: int, parent=None):
@@ -161,6 +160,8 @@ class FunctionDefAST(CompoundExpression):
         self.type = -1
         self.body = None
 
+        self.func = None
+
     def set_name(self, value):
         self.name = value
 
@@ -193,6 +194,8 @@ class FunctionDefAST(CompoundExpression):
         # добавляем функцию к модулю
         func = module.add_function(ty_func, self.name)
 
+        self.func = func
+
         # называем аргументы функции
         for i in range(len(self.args)):
             func.args[i].name = self.args[i].name
@@ -205,7 +208,6 @@ class FunctionDefAST(CompoundExpression):
 
         # Добавление инструкций в блок
         builder = llvm.core.Builder.new(bb)
-        # builder.di
         # bb = llvm.core.Builder
         # llvm.core.Builder.new()
 
@@ -218,14 +220,20 @@ class FunctionDefAST(CompoundExpression):
         # self.body.code_gen(module, builder)
 
         for op in self.order_operations:
-            op.code_gen(module, builder)
+            op.code_gen(func, builder)
 
         # bb_ret = func.append_basic_block("ret_bblc")
         # Добавление инструкций в блок
         # builder = llvm.core.Builder.new(bb_ret)
+
+        ret_bb = func.append_basic_block("ret_bblc")
+
+        # Добавление инструкций в блок
+        ret_builder = llvm.core.Builder.new(ret_bb)
+
         for obj in self.return_values:
-            tmp = obj.code_gen(module, builder)
-            builder.ret(tmp)
+            tmp = obj.code_gen(func, ret_builder)
+            ret_builder.ret(tmp)
 
         print(module)
 
@@ -252,18 +260,31 @@ class FunctionCallAST(BaseAST):
         self.func_callee = func
         self.args = args
 
+        self.ret = None
+
     def set_parent(self, value):
         self.parent = value
 
+    def set_ret_name(self, name):
+        self.ret = name
+
     def code_gen(self, module, builder=None):
-        pass
+        # ret_type = get_type(self.func_callee.type)
+
+        args = []
+        for a in self.args:
+            args.append(a.code_gen(module, builder))
+
+        tmp = builder.call(self.func_callee.func, args, name="tmp")
+        print(module)
+        return tmp
 
     def get_type(self):
         t = self.func_callee.type
-        if t == 35:
-            return "int"
-        elif t == 36:
-            return "double"
+        if t in ["int", my_token.INT]:
+            return my_token.INT
+        elif t in ["double", my_token.DOUBLE]:
+            return my_token.DOUBLE
         else:
             return None
 
@@ -392,8 +413,7 @@ class BinaryAST(BaseAST):
             return None
 
 
-
-# условие if {...} else {...}
+# условие if ... {...} else {...}
 class ExprIfAST(CompoundExpression):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
@@ -410,8 +430,26 @@ class ExprIfAST(CompoundExpression):
     def set_else(self, expr):
         self.else_body = expr
 
-    def code_gen(self, module):
-        pass
+    def code_gen(self, module, builder=None):
+        # булево выражение, базовый блок для if, базовый блок для else.
+        expr = self.expression.code_gen(module, builder)
+
+        if_true = module.append_basic_block("IfTrue")
+
+        # Добавление инструкций в блок
+        if_true_builder = llvm.core.Builder.new(if_true)
+        body = self.body.code_gen(module, if_true_builder)
+
+        if self.else_body:
+            if_false = module.append_basic_block("IfFalse")
+            if_false_builder = llvm.core.Builder.new(if_false)
+            else_body = self.else_body.code_gen(module, if_false_builder)
+
+            tmp = builder.cbranch(expr, if_true, if_false)
+        else:
+            tmp = builder.cbranch(expr, if_true)
+
+        return tmp
 
 
 # цикл while ... {...}
@@ -427,7 +465,7 @@ class ExprWhileAST(CompoundExpression):
     def set_body(self, obj):
         self.body = obj
 
-    def code_gen(self, module):
+    def code_gen(self, module, builder=None):
         pass
 
 
@@ -444,7 +482,7 @@ class ExprDoWhileAST(CompoundExpression):
     def set_body(self, obj):
         self.body = obj
 
-    def code_gen(self, module):
+    def code_gen(self, module, builder=None):
         pass
 
 

@@ -119,8 +119,13 @@ def func_call_parse(i: int, tokens_str, tokens_type, parent) -> Tuple[Union[ast.
     if tokens_type[i] == my_token.LPAR:
         i += 1
         while tokens_type[i] != my_token.RPAR:
-            if tokens_type[i] == my_token.NUMBER:
-                args.append(tokens_str[i])
+            if my_token.is_number(tokens_type[i]):
+                if tokens_type[i] == my_token.INT_NUMBER:
+                    numb = ast.IntNumericAST(int(tokens_str[i]))
+                    args.append(numb)
+                elif tokens_type[i] == my_token.DOUBLE_NUMBER:
+                    numb = ast.DoubleNumericAST(float(tokens_str[i]))
+                    args.append(numb)
             elif tokens_type[i] == my_token.IDENTIFIER:
                 obj = parent.get_names(tokens_str[i])
                 if obj is None:
@@ -370,6 +375,8 @@ def parse(i: int, tokens_str: List[str], tokens_type, parent=None):
             if obj is None:
                 print(error)
                 return None
+    elif tokens_type[i] == my_token.IF:
+        obj, i, error = expr_if_parse(i, tokens_str, tokens_type, parent)
     elif tokens_type[i] == my_token.DO:
         # вызов разбора do while
         obj, i, error = expr_do_while_parse(i, tokens_str, tokens_type, parent)
@@ -390,6 +397,54 @@ def parse(i: int, tokens_str: List[str], tokens_type, parent=None):
             print(error)
             return None
     return obj, i, error
+
+
+def expr_if_parse(i: int, tokens_str: List[str], tokens_type, parent=None):
+    error = ""
+    if tokens_type[i] == my_token.IF:
+        if_ast = ast.ExprIfAST(parent=parent)
+        i += 1
+        if (tokens_type[i] == my_token.IDENTIFIER) or \
+                (tokens_type[i] == my_token.INT_NUMBER) or (tokens_type[i] == my_token.DOUBLE_NUMBER) \
+                or (tokens_type[i] == my_token.BOOL):
+            obj, i, error = expr_parse(i, tokens_str, tokens_type, parent)
+            if_ast.set_expression(obj)
+        else:
+            error = "Ожидается выражение"
+            print(error)
+            return None, i, error
+        if tokens_type[i] == my_token.LBRACE:
+            i += 1
+            # разбор тела
+            if_body = ast.CompoundExpression(parent=if_ast)
+            while tokens_type[i] != my_token.RBRACE:
+                if_body, i, error = compound_expression_parse(i, tokens_str, tokens_type, if_body)
+                i += 1
+            if error != "":
+                print(error)
+                return None, i, error
+            if_ast.set_body(if_body)
+            if tokens_type[i] == my_token.RBRACE:
+                i += 1
+                if tokens_type[i] == my_token.ELSE:
+                    i += 1
+                    if tokens_type[i] == my_token.LBRACE:
+                        i += 1
+                        else_body = ast.CompoundExpression(parent=if_ast)
+                        while tokens_type[i] != my_token.RBRACE:
+                            else_body, i, error = compound_expression_parse(i, tokens_str, tokens_type, else_body)
+                            i += 1
+                        if error != "":
+                            print(error)
+                            return None, i, error
+                        if_ast.set_else(else_body)
+                    else:
+                        error = "Ожидается открывающая фигурная скобка"
+                        print(error)
+                        return None, i, error
+                else:
+                    i -= 1
+        return if_ast, i, error
 
 
 def expr_while_parse(i: int, tokens_str: List[str], tokens_type, parent=None):
