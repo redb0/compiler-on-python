@@ -458,8 +458,10 @@ def expr_while_parse(i: int, tokens_str: List[str], tokens_type, parent=None):
         elif (tokens_type[i] == my_token.IDENTIFIER) or \
              (tokens_type[i] == my_token.INT_NUMBER) or (tokens_type[i] == my_token.DOUBLE_NUMBER):
             # выражение TODO: разбор условия
-            expr = ast.CompoundExpression(while_expr)
-            expr, i, error = compound_expression_parse(i, tokens_str, tokens_type, expr)
+            expr = ast.BinaryAST(while_expr)
+            expr, i, error = bin_op_parse(i, tokens_str, tokens_type, expr)
+            # expr = ast.CompoundExpression(while_expr)
+            # expr, i, error = compound_expression_parse(i, tokens_str, tokens_type, expr)
             if error != "":
                 print(error)
                 return None, i, error
@@ -508,8 +510,10 @@ def expr_do_while_parse(i: int, tokens_str: List[str], tokens_type, parent=None)
     if tokens_type[i] == my_token.WHILE:
         i += 1
         # разбор условия (выражение) TODO: разбор условия
-        expr = ast.CompoundExpression(expr_do)
-        expr, i, error = compound_expression_parse(i, tokens_str, tokens_type, expr)
+        # expr = ast.CompoundExpression(expr_do)
+        expr = ast.BinaryAST(expr_do)
+        expr, i, error = bin_op_parse(i, tokens_str, tokens_type, expr)
+        # expr, i, error = compound_expression_parse(i, tokens_str, tokens_type, expr)
         if error != "":
             print(error)
             return None, i, error

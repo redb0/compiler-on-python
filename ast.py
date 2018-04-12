@@ -79,10 +79,10 @@ class VarDefAST(BaseAST):
         return self.var_dec.type
 
     def code_gen(self, module, builder=None):
-        # tmp = builder.load(self.var_dec._ptr, self.var_dec.name)
+        tmp = builder.load(self.var_dec._ptr, name=self.var_dec.name)
         # return tmp
 
-        return self.var_dec._ptr
+        return tmp  # self.var_dec._ptr
 
 
 class IntNumericAST(BaseAST):
@@ -226,14 +226,14 @@ class FunctionDefAST(CompoundExpression):
         # Добавление инструкций в блок
         # builder = llvm.core.Builder.new(bb_ret)
 
-        ret_bb = func.append_basic_block("ret_bblc")
+        # ret_bb = func.append_basic_block("ret_bblc")
 
         # Добавление инструкций в блок
-        ret_builder = llvm.core.Builder.new(ret_bb)
+        # ret_builder = llvm.core.Builder.new(ret_bb)
 
         for obj in self.return_values:
-            tmp = obj.code_gen(func, ret_builder)
-            ret_builder.ret(tmp)
+            tmp = obj.code_gen(func, builder)
+            builder.ret(tmp)
 
         print(module)
 
@@ -320,13 +320,16 @@ class BinaryAST(BaseAST):
             return None
 
     def code_gen(self, module, builder=None):
-        code_lhs = self.lhs.code_gen(module, builder)
-        code_rhs = self.rhs.code_gen(module, builder)
+        if self.operator != my_token.ASSIGN:
+            code_lhs = self.lhs.code_gen(module, builder)
+            code_rhs = self.rhs.code_gen(module, builder)
+            if code_lhs is None or code_rhs is None:
+                return None
         t = self.get_type()
         if t is None:
             return None
-        if code_lhs is None or code_rhs is None:
-            return None
+        # if code_lhs is None or code_rhs is None:
+        #     return None
         if self.operator == my_token.PLUS:
             if t == my_token.INT:
                 tmp = builder.add(code_lhs, code_rhs, 'addtmp')
@@ -407,8 +410,12 @@ class BinaryAST(BaseAST):
 
         elif self.operator == my_token.ASSIGN:
 
-            tmp = builder.store(code_rhs, code_lhs)
-            return tmp
+            # tmp = builder.store(code_rhs, code_lhs)
+
+            # builder.store(code_rhs, code_lhs)
+            code_rhs = self.rhs.code_gen(module, builder)
+            builder.store(code_rhs, self.lhs.var_dec._ptr)
+            return self.lhs.var_dec._ptr
         else:
             return None
 
@@ -434,22 +441,61 @@ class ExprIfAST(CompoundExpression):
         # булево выражение, базовый блок для if, базовый блок для else.
         expr = self.expression.code_gen(module, builder)
 
-        if_true = module.append_basic_block("IfTrue")
+        # if_true = module.append_basic_block("IfTrue")
+        #
+        # # Добавление инструкций в блок
+        # if_true_builder = llvm.core.Builder.new(if_true)
+        # body = self.body.code_gen(module, if_true_builder)
+        #
+        # if self.else_body:
+        #     if_false = module.append_basic_block("IfFalse")
+        #     if_false_builder = llvm.core.Builder.new(if_false)
+        #     else_body = self.else_body.code_gen(module, if_false_builder)
+        #
+        #     tmp = builder.cbranch(expr, if_true, if_false)
+        # else:
+        #     tmp = builder.cbranch(expr, if_true)
+        #
+        # return tmp
 
-        # Добавление инструкций в блок
-        if_true_builder = llvm.core.Builder.new(if_true)
-        body = self.body.code_gen(module, if_true_builder)
+        func = builder.basic_block.function
 
+        # Создание базовых блоков the и else.
+        # Последовательная вставка блоков в конец текущего блока.
+        then_block = func.append_basic_block('then')
+        else_block = func.append_basic_block('else')
+        merge_block = func.append_basic_block('ifcond')
+
+        builder.cbranch(expr, then_block, else_block)
+
+        # Добавить then блок в конец текущего.
+        builder.position_at_end(then_block)
+        then_value = self.body.code_gen(module, builder)
+        builder.branch(merge_block)
+
+        # Codegen of 'Then' can change the current block; update then_block
+        # for the PHI node.
+        then_block = builder.basic_block
+
+        # Добавить else блок в конец текущего.
+        builder.position_at_end(else_block)
         if self.else_body:
-            if_false = module.append_basic_block("IfFalse")
-            if_false_builder = llvm.core.Builder.new(if_false)
-            else_body = self.else_body.code_gen(module, if_false_builder)
+            else_value = self.else_body.code_gen(module, builder)
+        builder.branch(merge_block)
 
-            tmp = builder.cbranch(expr, if_true, if_false)
-        else:
-            tmp = builder.cbranch(expr, if_true)
+        # Codegen of 'Else' can change the current block, update else_block
+        # for the PHI node.
+        else_block = builder.basic_block
 
-        return tmp
+        # Добалвение блока слияния
+        builder.position_at_end(merge_block)
+        phi = builder.phi(llvm.core.Type.double(), 'iftmp')
+
+        phi.add_incoming(then_value, then_block)
+        if self.else_body:
+            phi.add_incoming(else_value, else_block)
+
+        return phi
 
 
 # цикл while ... {...}
@@ -466,7 +512,43 @@ class ExprWhileAST(CompoundExpression):
         self.body = obj
 
     def code_gen(self, module, builder=None):
-        pass
+        # expr = self.expression.code_gen(module, builder)
+
+        func = builder.basic_block.function
+
+        expr_block = func.append_basic_block('expr')
+        body_loop = func.append_basic_block('loop')
+        after_block = func.append_basic_block('after')
+
+        builder.branch(expr_block)
+
+        builder.position_at_end(expr_block)
+        expr = self.expression.code_gen(module, builder)
+        print(expr)
+        # end_condition_bool = builder.fcmp(
+        #     llvm.core.RPRED_ONE, expr, llvm.core.Constant.real(llvm.core.Type.double(), 0),
+        #     'loopcond')
+        # print(end_condition_bool)
+        builder.cbranch(expr, body_loop, after_block)
+
+        expr_block = builder.basic_block
+
+        builder.position_at_end(body_loop)
+        body_code = self.body.code_gen(module, builder)
+        builder.branch(expr_block)
+
+        body_loop = builder.basic_block
+
+        builder.position_at_end(after_block)
+        # phi = builder.phi(llvm.core.Type.double(), 'looptmp')
+
+        # phi.add_incoming(then_value, then_block)
+        # if self.else_body:
+        #     phi.add_incoming(else_value, else_block)
+
+        after_block = builder.basic_block
+
+        return after_block
 
 
 # цикл do {...} while ...
@@ -483,7 +565,31 @@ class ExprDoWhileAST(CompoundExpression):
         self.body = obj
 
     def code_gen(self, module, builder=None):
-        pass
+        func = builder.basic_block.function
+
+        body_loop = func.append_basic_block('loop')
+        expr_block = func.append_basic_block('expr_block')
+        before_loop = func.append_basic_block('before')
+
+        builder.branch(body_loop)
+
+        builder.position_at_end(body_loop)
+        body_code = self.body.code_gen(module, builder)
+        builder.branch(expr_block)
+
+        body_loop = builder.basic_block
+
+        builder.position_at_end(expr_block)
+        expr = self.expression.code_gen(module, builder)
+        builder.cbranch(expr, body_loop, before_loop)
+
+        expr_block = builder.basic_block
+
+        builder.position_at_end(before_loop)
+
+        before_loop = builder.basic_block
+
+        return before_loop
 
 
 def is_valid_type(v1, v2):
