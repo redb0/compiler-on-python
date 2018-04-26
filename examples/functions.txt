@@ -1,0 +1,13 @@
+def f(y int) -> int {
+    var x int;
+    x = (y + 4)*2 - 6/3;
+    //x = x + y - 2;
+    return x;
+}
+
+def main() -> int {
+    var res int;
+    res = f(5) + 3;
+    //res = res + 1;
+    return res;
+}

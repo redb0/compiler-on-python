@@ -1,0 +1,9 @@
+def main() -> int {
+    var res int;
+
+    res = 0;
+    res = res + 1;
+    res = res / 2 + 1 - (res - 5) / 2;
+
+    return res;
+}

@@ -51,6 +51,9 @@ class VarDecAST(BaseAST):
     def set_value(self, value):
         self.value = value
 
+    def get_ptr(self):
+        return self._ptr
+
     def code_gen(self, module, builder=None):
         # TODO: не понял как сделать локальную переменную
         t = get_type(self.type)
@@ -79,10 +82,11 @@ class VarDefAST(BaseAST):
         return self.var_dec.type
 
     def code_gen(self, module, builder=None):
-        tmp = builder.load(self.var_dec._ptr, name=self.var_dec.name)
-        # return tmp
-
-        return tmp  # self.var_dec._ptr
+        if type(self.var_dec._ptr) == llvm.core.Argument:
+            return self.var_dec._ptr
+        else:
+            tmp = builder.load(self.var_dec._ptr, name=self.var_dec.name)
+            return tmp  # self.var_dec._ptr
 
 
 class IntNumericAST(BaseAST):
@@ -110,11 +114,22 @@ class DoubleNumericAST(BaseAST):
     def code_gen(self, module, builder=None):
         # тип - 64-bit число с плавающей запятой
         double_type = llvm.core.Type.double()
-        const = llvm.core.Constant.int(double_type, self.value)
+        const = llvm.core.Constant.real(double_type, self.value)
         return const
 
     def get_type(self):
-        return "double"
+        return my_token.DOUBLE
+
+
+class BoolConstAST(BaseAST):
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+
+    def code_gen(self, module, builder=None):
+        pass
+
+    def get_type(self):
+        return my_token.BOOL
 
 
 # составное выражение, им является базовый узел, и тело функций
@@ -208,34 +223,33 @@ class FunctionDefAST(CompoundExpression):
 
         # Добавление инструкций в блок
         builder = llvm.core.Builder.new(bb)
-        # bb = llvm.core.Builder
-        # llvm.core.Builder.new()
 
         # Созднание инструкций в базовом блоке.
-        # команда возврата значения - ret
-        # TODO: надо обойти ASTтела функции и сгенерить его.
-        # tmp = builder.add(f_sum.args[0], f_sum.args[1], "tmp")
-        # builder.ret(tmp)
-
-        # self.body.code_gen(module, builder)
-
         for op in self.order_operations:
             op.code_gen(func, builder)
 
-        # bb_ret = func.append_basic_block("ret_bblc")
-        # Добавление инструкций в блок
-        # builder = llvm.core.Builder.new(bb_ret)
+        # print(module)
 
-        # ret_bb = func.append_basic_block("ret_bblc")
+    def print_func_cg(self, module, name_bb=''):
+        # кодогенераци для функции вывода print
+        pass
 
-        # Добавление инструкций в блок
-        # ret_builder = llvm.core.Builder.new(ret_bb)
 
-        for obj in self.return_values:
-            tmp = obj.code_gen(func, builder)
+class ReturnAst(BaseAST):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.values = []
+
+    def add_values(self, value):
+        self.values.append(value)
+
+    def code_gen(self, func, builder=None):
+        for obj in self.values:
+            if isinstance(obj, VarDefAST):
+                tmp = obj.var_dec.get_ptr()
+            else:
+                tmp = obj.code_gen(func, builder)
             builder.ret(tmp)
-
-        print(module)
 
 
 # class Body(BaseAST):
@@ -334,28 +348,28 @@ class BinaryAST(BaseAST):
             if t == my_token.INT:
                 tmp = builder.add(code_lhs, code_rhs, 'addtmp')
                 return tmp
-            elif t == "double":
+            elif t == my_token.DOUBLE:
                 tmp = builder.fadd(code_lhs, code_rhs, 'addtmp')
                 return tmp
         elif self.operator == my_token.MINUS:
             if t == my_token.INT:
                 tmp = builder.sub(code_lhs, code_rhs, 'subtmp')
                 return tmp
-            elif t == "double":
+            elif t == my_token.DOUBLE:
                 tmp = builder.fsub(code_lhs, code_rhs, 'subtmp')
                 return tmp
         elif self.operator == my_token.OPERATOR_DIV:
             if t == my_token.INT:
                 tmp = builder.udiv(code_lhs, code_rhs, 'divtmp')
                 return tmp
-            elif t == "double":
+            elif t == my_token.DOUBLE:
                 tmp = builder.fdiv(code_lhs, code_rhs, 'divtmp')
                 return tmp
         elif self.operator == my_token.OPERATOR_MUL:
             if t == my_token.INT:
                 tmp = builder.mul(code_lhs, code_rhs, 'multmp')
                 return tmp
-            elif t == "double":
+            elif t == my_token.DOUBLE:
                 tmp = builder.fmul(code_lhs, code_rhs, 'multmp')
                 return tmp
         # не нашел есть ли в llvmpy операция возведения в степень
@@ -367,14 +381,14 @@ class BinaryAST(BaseAST):
             if t == my_token.INT:
                 tmp = builder.icmp(llvm.core.IPRED_SLT, code_lhs, code_rhs, 'lttmp')
                 return tmp
-            elif t == "double":
+            elif t == my_token.DOUBLE:
                 tmp = builder.fcmp(llvm.core.RPRED_OLT, code_lhs, code_rhs, 'lttmp')
                 return tmp
         elif self.operator == my_token.LESS_OR_EQUAL:
             if t == my_token.INT:
                 tmp = builder.icmp(llvm.core.IPRED_SLE, code_lhs, code_rhs, 'letmp')
                 return tmp
-            elif t == "double":
+            elif t == my_token.DOUBLE:
                 tmp = builder.fcmp(llvm.core.RPRED_OLE, code_lhs, code_rhs, 'letmp')
                 return tmp
         elif self.operator == my_token.LARGER:
@@ -382,7 +396,7 @@ class BinaryAST(BaseAST):
                 # SLE или ULE, чем отличаются???
                 tmp = builder.icmp(llvm.core.IPRED_SGT, code_lhs, code_rhs, 'gttmp')
                 return tmp
-            elif t == "double":
+            elif t == my_token.DOUBLE:
                 tmp = builder.fcmp(llvm.core.RPRED_OGT, code_lhs, code_rhs, 'gttmp')
                 return tmp
         elif self.operator == my_token.LARGER_OR_EQUAL:
@@ -390,29 +404,25 @@ class BinaryAST(BaseAST):
                 # SLE или ULE, чем отличаются???
                 tmp = builder.icmp(llvm.core.IPRED_SGE, code_lhs, code_rhs, 'getmp')
                 return tmp
-            elif t == "double":
+            elif t == my_token.DOUBLE:
                 tmp = builder.fcmp(llvm.core.RPRED_OGE, code_lhs, code_rhs, 'getmp')
                 return tmp
         elif self.operator == my_token.EQUAL:
             if t == my_token.INT:
                 tmp = builder.icmp(llvm.core.IPRED_EQ, code_lhs, code_rhs, 'eqtmp')
                 return tmp
-            elif t == "double":
+            elif t == my_token.DOUBLE:
                 tmp = builder.fcmp(llvm.core.RPRED_OEQ, code_lhs, code_rhs, 'eqtmp')
                 return tmp
         elif self.operator == my_token.NOT_EQUAL:
             if t == my_token.INT:
                 tmp = builder.icmp(llvm.core.IPRED_NE, code_lhs, code_rhs, 'netmp')
                 return tmp
-            elif t == "double":
+            elif t == my_token.DOUBLE:
                 tmp = builder.fcmp(llvm.core.RPRED_ONE, code_lhs, code_rhs, 'netmp')
                 return tmp
 
         elif self.operator == my_token.ASSIGN:
-
-            # tmp = builder.store(code_rhs, code_lhs)
-
-            # builder.store(code_rhs, code_lhs)
             code_rhs = self.rhs.code_gen(module, builder)
             builder.store(code_rhs, self.lhs.var_dec._ptr)
             return self.lhs.var_dec._ptr
@@ -440,23 +450,6 @@ class ExprIfAST(CompoundExpression):
     def code_gen(self, module, builder=None):
         # булево выражение, базовый блок для if, базовый блок для else.
         expr = self.expression.code_gen(module, builder)
-
-        # if_true = module.append_basic_block("IfTrue")
-        #
-        # # Добавление инструкций в блок
-        # if_true_builder = llvm.core.Builder.new(if_true)
-        # body = self.body.code_gen(module, if_true_builder)
-        #
-        # if self.else_body:
-        #     if_false = module.append_basic_block("IfFalse")
-        #     if_false_builder = llvm.core.Builder.new(if_false)
-        #     else_body = self.else_body.code_gen(module, if_false_builder)
-        #
-        #     tmp = builder.cbranch(expr, if_true, if_false)
-        # else:
-        #     tmp = builder.cbranch(expr, if_true)
-        #
-        # return tmp
 
         func = builder.basic_block.function
 

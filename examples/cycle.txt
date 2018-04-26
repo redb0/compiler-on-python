@@ -1,0 +1,16 @@
+def main() -> double {
+    var res double;
+    var x double;
+    var y double;
+    x = .5;
+    y = 0.7;
+    res = x + y;
+    while res > 0. {
+        res = res - 1.;
+    }
+    res = 5.0;
+    do {
+        res = res - 1.;
+    } while res > 2.;
+    return res;
+}

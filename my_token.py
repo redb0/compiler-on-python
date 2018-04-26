@@ -59,10 +59,16 @@ ARROW = 34
 INT_NUMBER = 35
 DOUBLE_NUMBER = 36
 
+PRINT = 37
+
+TRUE = 38
+FALSE = 39
+
 END_OF_STR = 49
 END_OF_FILE = 50
 
 tokens = {"def": DEF_FUNC,
+          "print": PRINT,
           "if": IF,
           "else": ELSE,
           "while": WHILE,
@@ -94,7 +100,10 @@ tokens = {"def": DEF_FUNC,
           "double": DOUBLE,
           "bool": BOOL,
           "return": RETURN,
-          "->": ARROW}
+          "->": ARROW,
+          "true": TRUE,
+          "false": FALSE,
+          }
 
 
 def get_priority(t: int) -> int:

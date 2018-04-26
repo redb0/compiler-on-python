@@ -271,6 +271,8 @@ def func_def_parse(i: int, tokens_str: List[str], tokens_type, parent=None):
             # compound_expression = ast.CompoundExpression(dunc_obj)
             while tokens_type[i] != my_token.RBRACE:
                 compound_expression, i, error = compound_expression_parse(i, tokens_str, tokens_type, dunc_obj)
+                # if tokens_type[i] == my_token.RBRACE:
+                #     break
                 i += 1
             if error != "":
                 print(error)
@@ -391,7 +393,11 @@ def parse(i: int, tokens_str: List[str], tokens_type, parent=None):
             return None
         if parent.__class__ == ast.FunctionDefAST:
             parent.add_return_value(obj)
-            i += 1
+            ret_obj = ast.ReturnAst(parent)
+            ret_obj.add_values(obj)
+            if tokens_str[i] != ';':
+                i += 1
+            return ret_obj, i, error
         else:
             error = "Недопустимая конструкция: return в " + parent.__class__.__name__
             print(error)
@@ -475,6 +481,8 @@ def expr_while_parse(i: int, tokens_str: List[str], tokens_type, parent=None):
                 compound_expression, i, error = compound_expression_parse(i, tokens_str,
                                                                           tokens_type, compound_expression)
                 i += 1
+            # if tokens_type[i] == my_token.RBRACE:
+            #     i += 1
             if error != "":
                 print(error)
                 return None, i, error
@@ -522,8 +530,18 @@ def expr_do_while_parse(i: int, tokens_str: List[str], tokens_type, parent=None)
     return expr_do, i, error
 
 
+# rename func
+def parse_constr(i: int, tokens_str: List[str], tokens_type, parent=None):
+    if tokens_type[i] == my_token.PRINT:
+        pass
+
+
 def main():
-    with open("code1.txt", 'r', encoding='utf-8') as f:
+    # with open("examples/example1.txt", 'r', encoding='utf-8') as f:
+    with open("examples/code1.txt", 'r', encoding='utf-8') as f:
+    # with open("examples/functions.txt", 'r', encoding='utf-8') as f:
+    # with open("examples/cycle.txt", 'r', encoding='utf-8') as f:
+    # with open("examples/expr.txt", 'r', encoding='utf-8') as f:
         code = f.read()
     # print(code)
     tokens_str, tokens_type = get_token(code)
