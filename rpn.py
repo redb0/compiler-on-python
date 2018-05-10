@@ -6,7 +6,7 @@ def get_rpn(i: int, tokens_type):
     stack_idx = []
     error = ""
     while tokens_type[i] != my_token.SEMI:
-        if tokens_type[i] == my_token.INT_NUMBER or tokens_type[i] == my_token.DOUBLE_NUMBER:
+        if tokens_type[i] == my_token.INT_NUMBER or tokens_type[i] == my_token.DOUBLE_NUMBER or tokens_type[i] in [my_token.FALSE, my_token.TRUE]:
             res.append(i)
             i += 1
             continue

@@ -142,9 +142,17 @@ def func_call_parse(i: int, tokens_str, tokens_type, parent) -> Tuple[Union[ast.
             f.set_parent(parent)
             return f, i, error
         else:
-            error = "Не объявлена функция с именем " + name
-            print(error)
-            return None, i, error
+            if parent.is_reserved_name(name):
+                obj = parent.reserved_names[name]
+                if parent.reserved_names[name] is None:
+                    f = ast.FunctionDefAST()
+                f = ast.FunctionCallAST(obj, args)
+                f.set_parent(parent)
+                return f, i, error
+            else:
+                error = "Не объявлена функция с именем " + name
+                print(error)
+                return None, i, error
     else:
         error = "Не корректное объявление функции"
         print(error)
@@ -166,11 +174,15 @@ def bin_op_parse(i: int, tokens_str, tokens_type, parent: ast.BaseAST) -> Tuple[
             hs = ast.IntNumericAST(int(tokens_str[rpn[k]]))
             stack.append(hs)
             continue
-        if tokens_type[rpn[k]] == my_token.DOUBLE_NUMBER:
+        elif tokens_type[rpn[k]] == my_token.DOUBLE_NUMBER:
             hs = ast.DoubleNumericAST(float(tokens_str[rpn[k]]))
             stack.append(hs)
             continue
-        if tokens_type[rpn[k]] == my_token.IDENTIFIER:
+        elif tokens_type[rpn[k]] in [my_token.TRUE, my_token.FALSE]:
+            hs = ast.BoolConstAST(tokens_str[rpn[k]])
+            stack.append(hs)
+            continue
+        elif tokens_type[rpn[k]] == my_token.IDENTIFIER:
             obj = parent.get_names(tokens_str[rpn[k]])
             if obj is None:
                 error = "Переменная с именем " + tokens_str[rpn[k]] + " не объявлена."
@@ -189,7 +201,7 @@ def bin_op_parse(i: int, tokens_str, tokens_type, parent: ast.BaseAST) -> Tuple[
                     var_def_obj = ast.VarDefAST(parent)
                     var_def_obj.set_declaration(obj)
                     stack.append(var_def_obj)
-        if my_token.is_operator(tokens_type[rpn[k]]):
+        elif my_token.is_operator(tokens_type[rpn[k]]):
             bin_op = ast.BinaryAST()
             bin_op.set_op(tokens_type[rpn[k]])
             rhs = stack.pop()
@@ -302,7 +314,7 @@ def compound_expression_parse(i: int, tokens_str: List[str], tokens_type, compou
 
 
 def expr_parse(i: int, tokens_str: List[str], tokens_type, parent=None):
-    if (tokens_type[i] == my_token.IDENTIFIER) or my_token.is_number(tokens_type[i]):
+    if (tokens_type[i] == my_token.IDENTIFIER) or my_token.is_number(tokens_type[i]) or my_token.is_bool(tokens_type[i]):
         if my_token.is_operator(tokens_type[i + 1]):
             obj, i, error = bin_op_parse(i, tokens_str, tokens_type, parent)
             if obj is None:
@@ -349,6 +361,12 @@ def expr_parse(i: int, tokens_str: List[str], tokens_type, parent=None):
         elif tokens_type[i] == my_token.DOUBLE_NUMBER:
             obj = ast.DoubleNumericAST(float(tokens_str[i]))
             return obj, i, ""
+        elif tokens_type[i] == my_token.TRUE:
+            obj = ast.BoolConstAST(1)
+            return obj, i, ""
+        elif tokens_type[i] == my_token.FALSE:
+            obj = ast.BoolConstAST(0)
+            return obj, i, ""
 
 
 def parse(i: int, tokens_str: List[str], tokens_type, parent=None):
@@ -392,16 +410,23 @@ def parse(i: int, tokens_str: List[str], tokens_type, parent=None):
             print(error)
             return None
         if parent.__class__ == ast.FunctionDefAST:
-            parent.add_return_value(obj)
-            ret_obj = ast.ReturnAst(parent)
-            ret_obj.add_values(obj)
-            if tokens_str[i] != ';':
-                i += 1
-            return ret_obj, i, error
+            if obj.get_type() == parent.type:
+                parent.add_return_value(obj)
+                ret_obj = ast.ReturnAst(parent)
+                ret_obj.add_values(obj)
+                if tokens_str[i] != ';':
+                    i += 1
+                return ret_obj, i, error
+            else:
+                error = "Ожидается возвращаемый тип " + str(parent.type) + " актуальный тип - " + str(obj.get_type())
+                print(error)
+                return None
         else:
             error = "Недопустимая конструкция: return в " + parent.__class__.__name__
             print(error)
             return None
+    elif tokens_type[i] == my_token.PRINT:
+        obj, i, error = func_call_parse(i, tokens_str, tokens_type, parent)
     return obj, i, error
 
 
@@ -517,7 +542,7 @@ def expr_do_while_parse(i: int, tokens_str: List[str], tokens_type, parent=None)
 
     if tokens_type[i] == my_token.WHILE:
         i += 1
-        # разбор условия (выражение) TODO: разбор условия
+        # разбор условия (выражение)
         # expr = ast.CompoundExpression(expr_do)
         expr = ast.BinaryAST(expr_do)
         expr, i, error = bin_op_parse(i, tokens_str, tokens_type, expr)
@@ -538,7 +563,7 @@ def parse_constr(i: int, tokens_str: List[str], tokens_type, parent=None):
 
 def main():
     # with open("examples/example1.txt", 'r', encoding='utf-8') as f:
-    with open("examples/code1.txt", 'r', encoding='utf-8') as f:
+    with open("examples/code1.txt", 'r', encoding='utf-8') as f:  # не работает этот случай
     # with open("examples/functions.txt", 'r', encoding='utf-8') as f:
     # with open("examples/cycle.txt", 'r', encoding='utf-8') as f:
     # with open("examples/expr.txt", 'r', encoding='utf-8') as f:
@@ -554,6 +579,11 @@ def main():
     module = llvm.core.Module.new('my_module')
     root.code_gen(module)
     print(module)
+
+# TODO: Сделать функцию вывода print
+# https://stackoverflow.com/questions/18583642/how-do-i-pass-an-array-pointer-to-a-function-in-llvm-llvmpy
+# https://github.com/llvmpy/llvmpy/blob/master/www/src/userguide.txt
+# https://stackoverflow.com/questions/30234027/how-to-call-printf-in-llvm-through-the-module-builder-system
 
 
 if __name__ == "__main__":

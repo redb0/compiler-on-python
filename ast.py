@@ -7,9 +7,12 @@ from code_generator import get_type
 
 # базовый класс
 class BaseAST:
+    reserved_names = {"print": None}
+
     def __init__(self, parent=None):
         self.parent = parent
         self.names = {}
+        # self.reserved_names = {"print": None}
 
     def code_gen(self, module):
         pass
@@ -19,11 +22,23 @@ class BaseAST:
             obj = self.names[name]
             return obj
         except KeyError:
-            if self.parent is not None:
-                obj = self.parent.get_names(name)
-                return obj
-            else:
-                return None
+            return self.parent.get_names(name) if self.parent is not None else None
+            # if self.parent is not None:
+            #     obj = self.parent.get_names(name)
+            #     return obj
+            # else:
+            #     try:
+            #         return self.reserved_names[name]
+            #     except KeyError:
+            #         return None
+
+    def is_reserved_name(self, name: str) -> bool:
+        return name in self.reserved_names.keys()
+        # try:
+        #     obj = self.reserved_names[name]
+        #     return True
+        # except KeyError:
+        #     return False
 
     def add_name(self, name: str, obj) -> None:
         self.names[name] = obj
@@ -55,7 +70,6 @@ class VarDecAST(BaseAST):
         return self._ptr
 
     def code_gen(self, module, builder=None):
-        # TODO: не понял как сделать локальную переменную
         t = get_type(self.type)
         v = builder.alloca(t, name=self.name)
         self._ptr = v
@@ -122,11 +136,23 @@ class DoubleNumericAST(BaseAST):
 
 
 class BoolConstAST(BaseAST):
-    def __init__(self, parent=None):
+    def __init__(self, value: int, parent=None):
         super().__init__(parent=parent)
+        if type(value) in [int, float]:
+            if value == 0:
+                self.value = 0
+            else:
+                self.value = 1
+        elif type(value) is str:
+            if value == "true":
+                self.value = 1
+            elif value == "false":
+                self.value = 0
 
     def code_gen(self, module, builder=None):
-        pass
+        bool_type = llvm.core.Type.int(1)
+        const = llvm.core.Constant.int(bool_type, self.value)
+        return const
 
     def get_type(self):
         return my_token.BOOL
@@ -192,6 +218,17 @@ class FunctionDefAST(CompoundExpression):
 
     def add_return_value(self, obj):
         self.return_values.append(obj)
+
+    def print_code_gen(self, module, name_bb='entry'):
+        """Print Function"""
+        # fn_type = llvm.core.Type.function(llvm.core.Type.void(), [llvm.core.Type.pointer(llvm.core.Type.int(8))], True)
+        fn_type = llvm.core.Type.function(llvm.core.Type.int(), [llvm.core.Type.pointer(llvm.core.Type.int(8))], True)
+        my_print = module.add_function(fn_type, "print")
+
+        bb = my_print.append_basic_block(name_bb)  # ???
+        builder = llvm.core.Builder.new(bb)
+        builder.printf("%s\n", builder.args[0])
+        builder.ret()
 
     def code_gen(self, module, name_bb='entry'):
         # получаем возвращаемый функцией тип
@@ -328,8 +365,12 @@ class BinaryAST(BaseAST):
     def get_type(self):
         t1 = self.lhs.get_type()
         t2 = self.rhs.get_type()
-        if t1 == t2:
+        if t1 == t2 and my_token.is_arithmetic_operator(self.operator):
             return t1
+        elif t1 == t2 and my_token.is_logic_operator(self.operator):
+            return my_token.BOOL
+        # if t1 == t2:
+        #     return t1
         else:
             return None
 
@@ -345,31 +386,39 @@ class BinaryAST(BaseAST):
         # if code_lhs is None or code_rhs is None:
         #     return None
         if self.operator == my_token.PLUS:
-            if t == my_token.INT:
+            # if t == my_token.INT:
+            if self.lhs.get_type() == my_token.INT:  #  == self.rhs.get_type()
                 tmp = builder.add(code_lhs, code_rhs, 'addtmp')
                 return tmp
-            elif t == my_token.DOUBLE:
+            # elif t == my_token.DOUBLE:
+            elif self.lhs.get_type() == my_token.DOUBLE:  #  == self.rhs.get_type()
                 tmp = builder.fadd(code_lhs, code_rhs, 'addtmp')
                 return tmp
         elif self.operator == my_token.MINUS:
-            if t == my_token.INT:
+            # if t == my_token.INT:
+            if self.lhs.get_type() == my_token.INT:  #  == self.rhs.get_type()
                 tmp = builder.sub(code_lhs, code_rhs, 'subtmp')
                 return tmp
-            elif t == my_token.DOUBLE:
+            # elif t == my_token.DOUBLE:
+            elif self.lhs.get_type() == my_token.DOUBLE:  #  == self.rhs.get_type()
                 tmp = builder.fsub(code_lhs, code_rhs, 'subtmp')
                 return tmp
         elif self.operator == my_token.OPERATOR_DIV:
-            if t == my_token.INT:
+            # if t == my_token.INT:
+            if self.lhs.get_type() == my_token.INT:  #  == self.rhs.get_type()
                 tmp = builder.udiv(code_lhs, code_rhs, 'divtmp')
                 return tmp
-            elif t == my_token.DOUBLE:
+            # elif t == my_token.DOUBLE:
+            elif self.lhs.get_type() == my_token.DOUBLE:  #  == self.rhs.get_type()
                 tmp = builder.fdiv(code_lhs, code_rhs, 'divtmp')
                 return tmp
         elif self.operator == my_token.OPERATOR_MUL:
-            if t == my_token.INT:
+            # if t == my_token.INT:
+            if self.lhs.get_type() == my_token.INT:  #  == self.rhs.get_type()
                 tmp = builder.mul(code_lhs, code_rhs, 'multmp')
                 return tmp
-            elif t == my_token.DOUBLE:
+            # elif t == my_token.DOUBLE:
+            elif self.lhs.get_type() == my_token.DOUBLE:  #  == self.rhs.get_type()
                 tmp = builder.fmul(code_lhs, code_rhs, 'multmp')
                 return tmp
         # не нашел есть ли в llvmpy операция возведения в степень
@@ -378,47 +427,59 @@ class BinaryAST(BaseAST):
             pass
 
         elif self.operator == my_token.LESS:
-            if t == my_token.INT:
+            # if t == my_token.INT:
+            if self.lhs.get_type() == my_token.INT or self.lhs.get_type() == my_token.BOOL:  #  == self.rhs.get_type()
                 tmp = builder.icmp(llvm.core.IPRED_SLT, code_lhs, code_rhs, 'lttmp')
                 return tmp
-            elif t == my_token.DOUBLE:
+            elif self.lhs.get_type() == my_token.DOUBLE:  #  == self.rhs.get_type()
+            # elif t == my_token.DOUBLE:
                 tmp = builder.fcmp(llvm.core.RPRED_OLT, code_lhs, code_rhs, 'lttmp')
                 return tmp
         elif self.operator == my_token.LESS_OR_EQUAL:
-            if t == my_token.INT:
+            # if t == my_token.INT:
+            if self.lhs.get_type() == my_token.INT or self.lhs.get_type() == my_token.BOOL:
                 tmp = builder.icmp(llvm.core.IPRED_SLE, code_lhs, code_rhs, 'letmp')
                 return tmp
-            elif t == my_token.DOUBLE:
+            # elif t == my_token.DOUBLE:
+            elif self.lhs.get_type() == my_token.DOUBLE:
                 tmp = builder.fcmp(llvm.core.RPRED_OLE, code_lhs, code_rhs, 'letmp')
                 return tmp
         elif self.operator == my_token.LARGER:
-            if t == my_token.INT:
+            # if t == my_token.INT:
+            if self.lhs.get_type() == my_token.INT or self.lhs.get_type() == my_token.BOOL:  #  == self.rhs.get_type()
                 # SLE или ULE, чем отличаются???
                 tmp = builder.icmp(llvm.core.IPRED_SGT, code_lhs, code_rhs, 'gttmp')
                 return tmp
-            elif t == my_token.DOUBLE:
+            # elif t == my_token.DOUBLE:
+            elif self.lhs.get_type() == my_token.DOUBLE:
                 tmp = builder.fcmp(llvm.core.RPRED_OGT, code_lhs, code_rhs, 'gttmp')
                 return tmp
         elif self.operator == my_token.LARGER_OR_EQUAL:
-            if t == my_token.INT:
+            # if t == my_token.INT:
+            if self.lhs.get_type() == my_token.INT or self.lhs.get_type() == my_token.BOOL:
                 # SLE или ULE, чем отличаются???
                 tmp = builder.icmp(llvm.core.IPRED_SGE, code_lhs, code_rhs, 'getmp')
                 return tmp
-            elif t == my_token.DOUBLE:
+            # elif t == my_token.DOUBLE:
+            elif self.lhs.get_type() == my_token.DOUBLE:
                 tmp = builder.fcmp(llvm.core.RPRED_OGE, code_lhs, code_rhs, 'getmp')
                 return tmp
         elif self.operator == my_token.EQUAL:
-            if t == my_token.INT:
+            # if t == my_token.INT:
+            if self.lhs.get_type() == my_token.INT or self.lhs.get_type() == my_token.BOOL:
                 tmp = builder.icmp(llvm.core.IPRED_EQ, code_lhs, code_rhs, 'eqtmp')
                 return tmp
-            elif t == my_token.DOUBLE:
+            # elif t == my_token.DOUBLE:
+            elif self.lhs.get_type() == my_token.DOUBLE:
                 tmp = builder.fcmp(llvm.core.RPRED_OEQ, code_lhs, code_rhs, 'eqtmp')
                 return tmp
         elif self.operator == my_token.NOT_EQUAL:
-            if t == my_token.INT:
+            # if t == my_token.INT:
+            if self.lhs.get_type() == my_token.INT or self.lhs.get_type() == my_token.BOOL:
                 tmp = builder.icmp(llvm.core.IPRED_NE, code_lhs, code_rhs, 'netmp')
                 return tmp
-            elif t == my_token.DOUBLE:
+            # elif t == my_token.DOUBLE:
+            elif self.lhs.get_type() == my_token.DOUBLE:
                 tmp = builder.fcmp(llvm.core.RPRED_ONE, code_lhs, code_rhs, 'netmp')
                 return tmp
 

@@ -1,3 +1,4 @@
+// работает
 def main() -> int {
     var res int;
 

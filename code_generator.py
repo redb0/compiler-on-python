@@ -12,5 +12,5 @@ def get_type(t: Union[str, int]):
     elif t in ["double", DOUBLE]:
         llvm_type = llvm.core.Type.double()
     elif t in ['bool', BOOL]:
-        llvm_type = llvm.core.Type.int()
+        llvm_type = llvm.core.Type.int(1)
     return llvm_type

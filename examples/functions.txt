@@ -1,3 +1,4 @@
+// работает
 def f(y int) -> int {
     var x int;
     x = (y + 4)*2 - 6/3;

@@ -130,6 +130,13 @@ def is_number(token: int) -> bool:
     return False
 
 
+def is_bool(token: int) -> bool:
+    number = [TRUE, FALSE]
+    if token in number:
+        return True
+    return False
+
+
 def is_operator(token: int) -> bool:
     op = [OPERATOR_UM, OPERATOR_POWER, OPERATOR_MUL, OPERATOR_DIV,
           PLUS, MINUS,
@@ -140,3 +147,20 @@ def is_operator(token: int) -> bool:
         return True
     else:
         return False
+
+
+def is_arithmetic_operator(token: int) -> bool:
+    op = [OPERATOR_UM, OPERATOR_POWER, OPERATOR_MUL, OPERATOR_DIV,
+          PLUS, MINUS,
+          ASSIGN]
+    if token in op:
+        return True
+    return False
+
+
+def is_logic_operator(token: int) -> bool:
+    op = [LARGER, LARGER_OR_EQUAL, LESS, LESS_OR_EQUAL, EQUAL, NOT_EQUAL,
+          AND, OR, NOT]
+    if token in op:
+        return True
+    return False
