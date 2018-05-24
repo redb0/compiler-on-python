@@ -2,6 +2,7 @@ from typing import Tuple, Union, List
 
 import llvm
 import llvm.core
+import llvm_cbuilder
 
 import ast
 import my_token
@@ -563,19 +564,21 @@ def parse_constr(i: int, tokens_str: List[str], tokens_type, parent=None):
 
 def main():
     # with open("examples/example1.txt", 'r', encoding='utf-8') as f:
-    with open("examples/code1.txt", 'r', encoding='utf-8') as f:  # не работает этот случай
+    with open("examples/code.txt", 'r', encoding='utf-8') as f:  # не работает этот случай
     # with open("examples/functions.txt", 'r', encoding='utf-8') as f:
     # with open("examples/cycle.txt", 'r', encoding='utf-8') as f:
     # with open("examples/expr.txt", 'r', encoding='utf-8') as f:
         code = f.read()
     # print(code)
     tokens_str, tokens_type = get_token(code)
-    print(tokens_str)
-    print(tokens_type)
+    # print(tokens_str)
+    # print(tokens_type)
 
     root, i, error = base_parse(tokens_str, tokens_type)
-    print(root)
-    print(error)
+    # print(root)
+    if error != "":
+        print(error)
+        return
     module = llvm.core.Module.new('my_module')
     root.code_gen(module)
     print(module)

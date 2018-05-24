@@ -1,6 +1,8 @@
 // логиеский тип i1
 def main() -> bool {
     var x bool;
+    var y bool;
+    y = true;
     //x = 5 > 0;
     x = 5. != 0.;
     return x;

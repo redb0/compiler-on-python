@@ -65,7 +65,6 @@ def get_rpn(i: int, tokens_type):
     if len(stack_idx) != 0:
         while len(stack_idx) != 0:
             res.append(stack_idx.pop())
-    print(res)
     return i, res, error
 
 

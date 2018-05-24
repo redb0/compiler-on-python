@@ -1,0 +1,11 @@
+// не работает с булевым типом
+def main() -> bool {
+    var res bool;
+    var x bool;
+    var y bool;
+    x = true;
+    y = false;
+    res = y > x;
+    return res;
+    //return false;
+}
